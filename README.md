@@ -8,7 +8,8 @@ Repositório do BACK-END/API REST do trabalho A3 "ObraFácil"
 - `hotfix/*`: Correções urgentes
 ![PoliticasBranches drawio](https://github.com/user-attachments/assets/9ef3caa1-2484-40ef-87ec-afb587b62ba9)
 
-## Dependências do Frontend
-- React Native
-- Node.js
-- Expo CLI (se necessário)
+## Dependências do Backend
+- Java 17
+- Spring Boot
+- Maven
+- Banco de dados: H2/PostgreSQL

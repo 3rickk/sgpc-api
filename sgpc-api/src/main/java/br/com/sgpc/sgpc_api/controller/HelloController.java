@@ -1,7 +1,5 @@
 package br.com.sgpc.sgpc_api.controller;// caminho do pacote
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.web.bind.annotation.GetMapping; // para rotas GET
 import org.springframework.web.bind.annotation.RestController; // para dizer que é um controller
 

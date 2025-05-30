@@ -1,16 +1,21 @@
-version: '3.8'
+
 services:
   postgres:
-    image: postgres:latest
-    container_name: sgpc-db
+    image: postgres:15
+    container_name: sgpc-postgres
     environment:
-      POSTGRES_USER: usuario
-      POSTGRES_PASSWORD: senha
-      POSTGRES_DB: sgpc
+      POSTGRES_USER: sgpc_user
+      POSTGRES_PASSWORD: sgpc_pass
+      POSTGRES_DB: sgpc_db
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - sgpc-network
 
 volumes:
-  postgres_data:
+  pgdata:
+
+networks:
+  sgpc-network:

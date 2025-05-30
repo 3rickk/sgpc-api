@@ -12,4 +12,4 @@ Repositório do BACK-END/API REST do trabalho A3 "ObraFácil"
 - Java 17
 - Spring Boot
 - Maven
-- Banco de dados: H2/PostgreSQL
+- Banco de dados: H2(testelocal) / PostgreSQL via Docker (projeto oficial)

@@ -15,7 +15,7 @@ RUN apk add --no-cache maven && \
     rm -rf /root/.m2
 
 # Expõe a porta
-EXPOSE 8080
+EXPOSE 8000
 
 # Executa a aplicação
 CMD ["java", "-jar", "target/sgpc-api-0.0.1-SNAPSHOT.jar"]

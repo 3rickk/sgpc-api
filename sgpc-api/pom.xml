@@ -45,6 +45,17 @@
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
 
+		<!-- Flyway para migrations de banco -->
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-core</artifactId>
+		</dependency>
+		
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-mysql</artifactId>
+		</dependency>
+
 		<dependency>
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
@@ -79,6 +90,19 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+			
+			<plugin>
+				<groupId>org.flywaydb</groupId>
+				<artifactId>flyway-maven-plugin</artifactId>
+				<configuration>
+					<url><![CDATA[${JDBC_URI:jdbc:mysql://localhost:3306/sgpc_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}]]></url>
+					<user>${DB_USERNAME:sgpc_user}</user>
+					<password>${DB_PASSWORD:sgpc_password}</password>
+					<locations>
+						<location>classpath:db/migration</location>
+					</locations>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>

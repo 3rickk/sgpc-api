@@ -1,5 +1,6 @@
 package br.com.sgpc.sgpc_api.service;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.HashSet;
@@ -12,15 +13,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.com.sgpc.sgpc_api.dto.ProjectBudgetDto;
 import br.com.sgpc.sgpc_api.dto.ProjectCreateDto;
 import br.com.sgpc.sgpc_api.dto.ProjectDetailsDto;
 import br.com.sgpc.sgpc_api.dto.ProjectSummaryDto;
 import br.com.sgpc.sgpc_api.dto.ProjectUpdateDto;
 import br.com.sgpc.sgpc_api.dto.UserDto;
 import br.com.sgpc.sgpc_api.entity.Project;
+import br.com.sgpc.sgpc_api.entity.Task;
 import br.com.sgpc.sgpc_api.entity.User;
 import br.com.sgpc.sgpc_api.enums.ProjectStatus;
+import br.com.sgpc.sgpc_api.enums.TaskStatus;
 import br.com.sgpc.sgpc_api.repository.ProjectRepository;
+import br.com.sgpc.sgpc_api.repository.TaskRepository;
+import br.com.sgpc.sgpc_api.repository.TaskServiceRepository;
 import br.com.sgpc.sgpc_api.repository.UserRepository;
 
 @Service
@@ -35,6 +41,12 @@ public class ProjectService {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private TaskRepository taskRepository;
+
+    @Autowired
+    private TaskServiceRepository taskServiceRepository;
 
     public ProjectDetailsDto createProject(ProjectCreateDto projectCreateDto) {
         if (projectRepository.existsByName(projectCreateDto.getName())) {
@@ -220,6 +232,106 @@ public class ProjectService {
                 .collect(Collectors.toList());
     }
 
+    // Métodos para gestão de orçamento e custos (RF09)
+    @Transactional(readOnly = true)
+    public ProjectBudgetDto getProjectBudget(Long projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
+
+        ProjectBudgetDto budgetDto = new ProjectBudgetDto();
+        budgetDto.setProjectId(project.getId());
+        budgetDto.setProjectName(project.getName());
+        budgetDto.setTotalBudget(project.getTotalBudget());
+        budgetDto.setRealizedCost(project.getRealizedCost());
+        budgetDto.setBudgetVariance(project.getBudgetVariance());
+        budgetDto.setBudgetUsagePercentage(project.getBudgetUsagePercentage());
+        budgetDto.setProgressPercentage(project.getProgressPercentage());
+        budgetDto.setIsOverBudget(project.isOverBudget());
+
+        // Calcular custos detalhados
+        List<Task> projectTasks = taskRepository.findByProjectId(projectId);
+        BigDecimal totalLaborCost = projectTasks.stream()
+                .map(Task::getLaborCost)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalMaterialCost = projectTasks.stream()
+                .map(Task::getMaterialCost)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalEquipmentCost = projectTasks.stream()
+                .map(Task::getEquipmentCost)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        budgetDto.setTotalLaborCost(totalLaborCost);
+        budgetDto.setTotalMaterialCost(totalMaterialCost);
+        budgetDto.setTotalEquipmentCost(totalEquipmentCost);
+
+        // Estatísticas das tarefas
+        budgetDto.setTotalTasks(projectTasks.size());
+        budgetDto.setCompletedTasks((int) projectTasks.stream().filter(Task::isCompleted).count());
+        budgetDto.setPendingTasks(budgetDto.getTotalTasks() - budgetDto.getCompletedTasks());
+
+        return budgetDto;
+    }
+
+    // Recalcular custo realizado do projeto baseado nas tarefas concluídas
+    public void recalculateProjectRealizedCost(Long projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
+
+        // Calcular custo realizado com base nas tarefas concluídas
+        BigDecimal realizedCost = taskServiceRepository.calculateRealizedCostByProjectId(projectId);
+        
+        // Adicionar custos diretos das tarefas concluídas (que não possuem serviços)
+        BigDecimal taskDirectCosts = taskRepository.findByProjectIdAndStatus(projectId, TaskStatus.CONCLUIDA)
+                .stream()
+                .map(Task::getTotalCost)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalRealizedCost = realizedCost.add(taskDirectCosts);
+
+        project.updateRealizedCost(totalRealizedCost);
+        projectRepository.save(project);
+    }
+
+    // Recalcular progresso do projeto baseado no progresso das tarefas
+    public void recalculateProjectProgress(Long projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
+
+        List<Task> projectTasks = taskRepository.findByProjectId(projectId);
+
+        if (projectTasks.isEmpty()) {
+            project.updateProgress(BigDecimal.ZERO);
+            projectRepository.save(project);
+            return;
+        }
+
+        // Calcular progresso médio baseado no progresso das tarefas
+        double averageProgress = projectTasks.stream()
+                .mapToInt(Task::getProgressPercentage)
+                .average()
+                .orElse(0.0);
+
+        project.updateProgress(BigDecimal.valueOf(averageProgress));
+        projectRepository.save(project);
+    }
+
+    // Verificar se o projeto está acima do orçamento
+    @Transactional(readOnly = true)
+    public List<ProjectSummaryDto> getProjectsOverBudget() {
+        return projectRepository.findAll().stream()
+                .filter(Project::isOverBudget)
+                .map(this::convertToSummaryDto)
+                .collect(Collectors.toList());
+    }
+
+    // Relatório consolidado de orçamento de todos os projetos
+    @Transactional(readOnly = true)
+    public List<ProjectBudgetDto> getAllProjectsBudgetReport() {
+        return projectRepository.findAll().stream()
+                .map(project -> getProjectBudget(project.getId()))
+                .collect(Collectors.toList());
+    }
+
     private ProjectDetailsDto convertToDetailsDto(Project project) {
         ProjectDetailsDto dto = new ProjectDetailsDto();
         dto.setId(project.getId());
@@ -291,7 +403,12 @@ public class ProjectService {
     }
 
     private Integer calculateProgressPercentage(Project project) {
-        // Lógica simplificada - baseada no status
+        // Usar o progresso calculado do projeto se disponível
+        if (project.getProgressPercentage() != null) {
+            return project.getProgressPercentage().intValue();
+        }
+
+        // Lógica simplificada baseada no status
         switch (project.getStatus()) {
             case PLANEJAMENTO:
                 return 0;

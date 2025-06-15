@@ -67,6 +67,13 @@ public class Project {
     @Column(name = "status", nullable = false)
     private ProjectStatus status = ProjectStatus.PLANEJAMENTO;
 
+    // Novos campos de orçamento e progresso
+    @Column(name = "realized_cost", precision = 15, scale = 2)
+    private BigDecimal realizedCost = BigDecimal.ZERO;
+
+    @Column(name = "progress_percentage", precision = 5, scale = 2)
+    private BigDecimal progressPercentage = BigDecimal.ZERO;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -87,6 +94,12 @@ public class Project {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
+        if (realizedCost == null) {
+            realizedCost = BigDecimal.ZERO;
+        }
+        if (progressPercentage == null) {
+            progressPercentage = BigDecimal.ZERO;
+        }
     }
 
     @PreUpdate
@@ -109,5 +122,51 @@ public class Project {
 
     public int getTeamSize() {
         return teamMembers.size();
+    }
+
+    // Métodos para gestão de orçamento
+    public BigDecimal getBudgetVariance() {
+        if (totalBudget == null) {
+            return realizedCost.negate();
+        }
+        return totalBudget.subtract(realizedCost);
+    }
+
+    public boolean isOverBudget() {
+        return getBudgetVariance().compareTo(BigDecimal.ZERO) < 0;
+    }
+
+    public BigDecimal getBudgetUsagePercentage() {
+        if (totalBudget == null || totalBudget.compareTo(BigDecimal.ZERO) == 0) {
+            return BigDecimal.ZERO;
+        }
+        return realizedCost.multiply(BigDecimal.valueOf(100)).divide(totalBudget, 2, java.math.RoundingMode.HALF_UP);
+    }
+
+    public void updateRealizedCost(BigDecimal newRealizedCost) {
+        this.realizedCost = newRealizedCost != null ? newRealizedCost : BigDecimal.ZERO;
+    }
+
+    public void updateProgress(BigDecimal newProgress) {
+        if (newProgress != null && newProgress.compareTo(BigDecimal.ZERO) >= 0 && newProgress.compareTo(BigDecimal.valueOf(100)) <= 0) {
+            this.progressPercentage = newProgress;
+        }
+    }
+
+    // Métodos de conveniência para status do projeto
+    public boolean isActive() {
+        return status == ProjectStatus.EM_ANDAMENTO || status == ProjectStatus.PLANEJAMENTO;
+    }
+
+    public boolean isCompleted() {
+        return status == ProjectStatus.CONCLUIDO;
+    }
+
+    public boolean isSuspended() {
+        return status == ProjectStatus.SUSPENSO;
+    }
+
+    public boolean isCancelled() {
+        return status == ProjectStatus.CANCELADO;
     }
 } 

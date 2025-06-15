@@ -1,5 +1,6 @@
 package br.com.sgpc.sgpc_api.entity;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -72,6 +73,16 @@ public class Task {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
+    // Novos campos de custo
+    @Column(name = "labor_cost", precision = 15, scale = 2)
+    private BigDecimal laborCost = BigDecimal.ZERO;
+
+    @Column(name = "material_cost", precision = 15, scale = 2)
+    private BigDecimal materialCost = BigDecimal.ZERO;
+
+    @Column(name = "equipment_cost", precision = 15, scale = 2)
+    private BigDecimal equipmentCost = BigDecimal.ZERO;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
@@ -102,6 +113,15 @@ public class Task {
         if (priority == null) {
             priority = 1;
         }
+        if (laborCost == null) {
+            laborCost = BigDecimal.ZERO;
+        }
+        if (materialCost == null) {
+            materialCost = BigDecimal.ZERO;
+        }
+        if (equipmentCost == null) {
+            equipmentCost = BigDecimal.ZERO;
+        }
     }
 
     @PreUpdate
@@ -130,5 +150,40 @@ public class Task {
             case 4 -> "Crítica";
             default -> "Indefinida";
         };
+    }
+
+    // Métodos para custos
+    public BigDecimal getTotalCost() {
+        return laborCost.add(materialCost).add(equipmentCost);
+    }
+
+    public void updateCosts(BigDecimal laborCost, BigDecimal materialCost, BigDecimal equipmentCost) {
+        this.laborCost = laborCost != null ? laborCost : BigDecimal.ZERO;
+        this.materialCost = materialCost != null ? materialCost : BigDecimal.ZERO;
+        this.equipmentCost = equipmentCost != null ? equipmentCost : BigDecimal.ZERO;
+    }
+
+    public boolean hasCosts() {
+        return getTotalCost().compareTo(BigDecimal.ZERO) > 0;
+    }
+
+    // Método para atualizar progresso
+    public void updateProgress(Integer newProgress) {
+        if (newProgress != null && newProgress >= 0 && newProgress <= 100) {
+            this.progressPercentage = newProgress;
+            
+            // Atualizar status automaticamente baseado no progresso
+            if (newProgress == 0 && this.status != TaskStatus.A_FAZER) {
+                this.status = TaskStatus.A_FAZER;
+            } else if (newProgress > 0 && newProgress < 100 && this.status != TaskStatus.EM_ANDAMENTO) {
+                this.status = TaskStatus.EM_ANDAMENTO;
+                if (this.startDateActual == null) {
+                    this.startDateActual = LocalDate.now();
+                }
+            } else if (newProgress == 100 && this.status != TaskStatus.CONCLUIDA) {
+                this.status = TaskStatus.CONCLUIDA;
+                this.endDateActual = LocalDate.now();
+            }
+        }
     }
 } 

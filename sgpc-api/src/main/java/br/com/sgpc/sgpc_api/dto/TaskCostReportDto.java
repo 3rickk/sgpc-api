@@ -1,0 +1,23 @@
+package br.com.sgpc.sgpc_api.dto;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class TaskCostReportDto {
+    
+    private Long taskId;
+    private String taskTitle;
+    private BigDecimal laborCost;
+    private BigDecimal materialCost;
+    private BigDecimal equipmentCost;
+    private BigDecimal totalCost;
+    private Integer progressPercentage;
+    private List<TaskServiceDto> services;
+} 

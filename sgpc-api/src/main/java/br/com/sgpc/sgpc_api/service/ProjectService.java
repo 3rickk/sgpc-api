@@ -39,8 +39,7 @@ public class ProjectService {
     @Autowired
     private UserRepository userRepository;
 
-    @Autowired
-    private UserService userService;
+
 
     @Autowired
     private TaskRepository taskRepository;
@@ -409,32 +408,27 @@ public class ProjectService {
         }
 
         // Lógica simplificada baseada no status
-        switch (project.getStatus()) {
-            case PLANEJAMENTO:
-                return 0;
-            case EM_ANDAMENTO:
+        return switch (project.getStatus()) {
+            case PLANEJAMENTO -> 0;
+            case EM_ANDAMENTO -> {
                 // Cálculo baseado nas datas (simplificado)
                 if (project.getStartDateActual() != null && project.getEndDatePlanned() != null) {
                     LocalDate now = LocalDate.now();
-                    if (now.isBefore(project.getStartDateActual())) return 0;
-                    if (now.isAfter(project.getEndDatePlanned())) return 100;
+                    if (now.isBefore(project.getStartDateActual())) yield 0;
+                    if (now.isAfter(project.getEndDatePlanned())) yield 100;
                     
                     long totalDays = ChronoUnit.DAYS.between(project.getStartDateActual(), project.getEndDatePlanned());
                     long elapsedDays = ChronoUnit.DAYS.between(project.getStartDateActual(), now);
                     
                     if (totalDays > 0) {
-                        return Math.min(100, (int) ((elapsedDays * 100) / totalDays));
+                        yield Math.min(100, (int) ((elapsedDays * 100) / totalDays));
                     }
                 }
-                return 50; // Default para em andamento
-            case CONCLUIDO:
-                return 100;
-            case SUSPENSO:
-            case CANCELADO:
-                return 0;
-            default:
-                return 0;
-        }
+                yield 50; // Default para em andamento
+            }
+            case CONCLUIDO -> 100;
+            case SUSPENSO, CANCELADO -> 0;
+        };
     }
 
     private Boolean isProjectDelayed(Project project) {

@@ -17,9 +17,7 @@ import br.com.sgpc.sgpc_api.entity.Task;
 import br.com.sgpc.sgpc_api.entity.User;
 import br.com.sgpc.sgpc_api.enums.TaskStatus;
 import br.com.sgpc.sgpc_api.repository.ProjectRepository;
-import br.com.sgpc.sgpc_api.repository.ServiceRepository;
 import br.com.sgpc.sgpc_api.repository.TaskRepository;
-import br.com.sgpc.sgpc_api.repository.TaskServiceRepository;
 import br.com.sgpc.sgpc_api.repository.UserRepository;
 
 @Service
@@ -35,14 +33,7 @@ public class TaskService {
     @Autowired
     private UserRepository userRepository;
 
-    @Autowired
-    private TaskServiceRepository taskServiceRepository;
 
-    @Autowired
-    private ServiceRepository serviceRepository;
-
-    @Autowired
-    private ProjectService projectService;
 
     public TaskViewDto createTask(Long projectId, TaskCreateDto taskCreateDto, Long createdByUserId) {
         // Verificar se o projeto existe

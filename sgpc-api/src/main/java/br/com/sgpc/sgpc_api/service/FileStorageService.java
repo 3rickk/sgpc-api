@@ -53,7 +53,11 @@ public class FileStorageService {
         createDirectoryStructure();
         
         // Gera nome único para o arquivo
-        String originalFileName = StringUtils.cleanPath(file.getOriginalFilename());
+        String originalFileName = file.getOriginalFilename();
+        if (originalFileName == null) {
+            originalFileName = "file";
+        }
+        originalFileName = StringUtils.cleanPath(originalFileName);
         String fileExtension = getFileExtension(originalFileName);
         String fileName = generateUniqueFileName() + fileExtension;
         
@@ -149,7 +153,11 @@ public class FileStorageService {
                 (maxFileSize / 1024 / 1024) + "MB");
         }
         
-        String fileName = StringUtils.cleanPath(file.getOriginalFilename());
+        String fileName = file.getOriginalFilename();
+        if (fileName == null) {
+            throw new IllegalArgumentException("Nome do arquivo não pode ser nulo");
+        }
+        fileName = StringUtils.cleanPath(fileName);
         if (fileName.contains("..")) {
             throw new IllegalArgumentException("Nome do arquivo inválido: " + fileName);
         }

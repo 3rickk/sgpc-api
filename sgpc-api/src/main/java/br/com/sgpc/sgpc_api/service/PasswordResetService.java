@@ -24,8 +24,7 @@ public class PasswordResetService {
     @Autowired
     private PasswordResetTokenRepository passwordResetTokenRepository;
     
-    @Autowired
-    private UserService userService;
+
     
     public String generatePasswordResetToken(PasswordResetRequestDto request) {
         User user = userRepository.findByEmail(request.getEmail())
@@ -45,8 +44,10 @@ public class PasswordResetService {
         
         passwordResetTokenRepository.save(resetToken);
         
-        // TODO: Aqui deveria enviar email com o token
-        // Por simplicidade, vamos retornar o token (em produção nunca fazer isso)
+        // Em produção, enviar email com o token em vez de retorná-lo
+        // emailService.sendPasswordResetEmail(user.getEmail(), token);
+        
+        // Por simplicidade no desenvolvimento, retornamos o token
         return token;
     }
     

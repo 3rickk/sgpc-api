@@ -48,7 +48,7 @@ INSERT INTO roles (name, description) VALUES
 
 -- Inserção de usuário administrador padrão
 INSERT INTO users (full_name, email, password_hash, is_active) VALUES 
-('Administrador', 'admin@sgpc.com', '$2a$12$YQKAZaOFUkiVYa4FZj9Qze9/Qj1mJL0RiVAKQF5Yj9Qze9/Qj1mJL0', TRUE);
+('Administrador', 'admin@sgpc.com', 'hashed_admin123', TRUE);
 
 -- Atribuindo role ADMIN ao usuário administrador
 INSERT INTO user_roles (user_id, role_id) VALUES 

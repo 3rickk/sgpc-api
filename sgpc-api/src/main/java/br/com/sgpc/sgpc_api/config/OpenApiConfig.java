@@ -1,5 +1,7 @@
 package br.com.sgpc.sgpc_api.config;
 
+import java.util.List;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -10,6 +12,7 @@ import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import io.swagger.v3.oas.models.servers.Server;
 
 /**
  * Configuração do OpenAPI/Swagger para documentação da API.
@@ -48,6 +51,14 @@ public class OpenApiConfig {
                         .license(new License()
                                 .name("MIT License")
                                 .url("https://opensource.org/licenses/MIT")))
+                .servers(List.of(
+                        new Server()
+                                .url("https://sgpc-api.koyeb.app")
+                                .description("Servidor de Produção (Koyeb)"),
+                        new Server()
+                                .url("http://localhost:8000")
+                                .description("Servidor de Desenvolvimento Local")
+                ))
                 .addSecurityItem(new SecurityRequirement()
                         .addList("Bearer Authentication"))
                 .components(new Components()

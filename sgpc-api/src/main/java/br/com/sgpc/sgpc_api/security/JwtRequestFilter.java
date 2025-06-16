@@ -55,6 +55,29 @@ public class JwtRequestFilter extends OncePerRequestFilter {
     private JwtUtil jwtUtil;
     
     /**
+     * Determina se este filtro deve ser pulado para certas URLs.
+     * 
+     * Endpoints públicos como autenticação, swagger e health check
+     * não precisam de validação JWT.
+     * 
+     * @param request requisição HTTP
+     * @return boolean true se o filtro deve ser pulado
+     */
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        
+        // Lista de caminhos que não precisam de autenticação JWT
+        return path.startsWith("/api/auth/") || 
+               path.startsWith("/swagger-ui/") ||
+               path.startsWith("/api-docs/") ||
+               path.startsWith("/v3/api-docs/") ||
+               path.equals("/swagger-ui.html") ||
+               path.startsWith("/actuator/health") ||
+               path.equals("/error");
+    }
+    
+    /**
      * Método principal de filtro executado para cada requisição HTTP.
      * 
      * Este método implementa o fluxo completo de autenticação JWT:
@@ -84,10 +107,15 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         // Extrai o token JWT do header Authorization
         if (requestTokenHeader != null && requestTokenHeader.startsWith("Bearer ")) {
             jwtToken = requestTokenHeader.substring(7);
-            try {
-                username = jwtUtil.extractUsername(jwtToken);
-            } catch (Exception e) {
-                logger.error("Não foi possível extrair o username do token JWT", e);
+            // Verifica se o token não está vazio após remover "Bearer "
+            if (jwtToken.trim().isEmpty()) {
+                logger.warn("Token JWT vazio encontrado no header Authorization");
+            } else {
+                try {
+                    username = jwtUtil.extractUsername(jwtToken);
+                } catch (Exception e) {
+                    logger.error("Não foi possível extrair o username do token JWT", e);
+                }
             }
         } else {
             logger.warn("Token JWT não encontrado ou não começa com Bearer");

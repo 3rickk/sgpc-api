@@ -90,8 +90,11 @@ public class ErroController implements ErrorController {
         Integer statusCode = (Integer) request.getAttribute("javax.servlet.error.status_code");
         String mensagem;
 
-        // Mapeia códigos de status para mensagens amigáveis
-        if (statusCode == HttpStatus.NOT_FOUND.value()) {
+        // Verifica se statusCode é null e usa 500 como padrão
+        if (statusCode == null) {
+            statusCode = HttpStatus.INTERNAL_SERVER_ERROR.value();
+            mensagem = "Erro interno do servidor";
+        } else if (statusCode == HttpStatus.NOT_FOUND.value()) {
             mensagem = "Rota não encontrada";
         } else if (statusCode == HttpStatus.INTERNAL_SERVER_ERROR.value()) {
             mensagem = "Erro interno do servidor";

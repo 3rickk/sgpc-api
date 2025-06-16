@@ -27,6 +27,25 @@ import br.com.sgpc.sgpc_api.repository.MaterialRequestRepository;
 import br.com.sgpc.sgpc_api.repository.ProjectRepository;
 import br.com.sgpc.sgpc_api.repository.UserRepository;
 
+/**
+ * Serviço responsável pelo gerenciamento de solicitações de materiais.
+ * 
+ * Esta classe implementa o workflow completo de solicitações de materiais,
+ * incluindo criação, aprovação, rejeição e controle de estoque automático.
+ * Integra-se com o sistema de materiais para garantir disponibilidade.
+ * 
+ * Principais funcionalidades:
+ * - Criação de solicitações com múltiplos itens
+ * - Workflow de aprovação com validações
+ * - Baixa automática de estoque na aprovação
+ * - Controle de status e rastreabilidade
+ * - Filtros por projeto e status
+ * - Histórico completo de solicitações
+ * 
+ * @author Sistema SGPC
+ * @version 1.0
+ * @since 2024
+ */
 @Service
 @Transactional
 public class MaterialRequestService {
@@ -49,6 +68,17 @@ public class MaterialRequestService {
     @Autowired
     private MaterialService materialService;
 
+    /**
+     * Cria uma nova solicitação de materiais.
+     * 
+     * Valida o projeto, usuário solicitante e materiais, criando uma
+     * requisição com múltiplos itens no status PENDENTE para aprovação.
+     * 
+     * @param requestDto dados da solicitação com lista de materiais
+     * @param requesterId ID do usuário que está fazendo a solicitação
+     * @return MaterialRequestDetailsDto solicitação criada com detalhes completos
+     * @throws RuntimeException se usuário, projeto ou material não for encontrado
+     */
     public MaterialRequestDetailsDto createMaterialRequest(MaterialRequestCreateDto requestDto, Long requesterId) {
         // Obter usuário solicitante
         User requester = userRepository.findById(requesterId)
@@ -90,6 +120,14 @@ public class MaterialRequestService {
         return convertToDetailsDto(materialRequest);
     }
 
+    /**
+     * Lista todas as solicitações de materiais do sistema.
+     * 
+     * Retorna lista completa ordenada por data de criação,
+     * incluindo informações básicas para visualização geral.
+     * 
+     * @return List<MaterialRequestSummaryDto> lista de todas as solicitações
+     */
     @Transactional(readOnly = true)
     public List<MaterialRequestSummaryDto> getAllMaterialRequests() {
         return materialRequestRepository.findAllWithDetails().stream()
@@ -97,6 +135,15 @@ public class MaterialRequestService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Busca uma solicitação de materiais pelo ID.
+     * 
+     * Retorna detalhes completos incluindo todos os itens
+     * solicitados e informações de aprovação/rejeição.
+     * 
+     * @param id ID da solicitação
+     * @return Optional<MaterialRequestDetailsDto> solicitação encontrada ou empty
+     */
     @Transactional(readOnly = true)
     public Optional<MaterialRequestDetailsDto> getMaterialRequestById(Long id) {
         MaterialRequest materialRequest = materialRequestRepository.findByIdWithDetails(id);
@@ -112,6 +159,15 @@ public class MaterialRequestService {
         return Optional.of(convertToDetailsDto(materialRequest));
     }
 
+    /**
+     * Lista solicitações por status.
+     * 
+     * Filtra solicitações por status específico (PENDENTE, APROVADA, REJEITADA),
+     * útil para workflows de aprovação e controle.
+     * 
+     * @param status status das solicitações a buscar
+     * @return List<MaterialRequestSummaryDto> solicitações do status especificado
+     */
     @Transactional(readOnly = true)
     public List<MaterialRequestSummaryDto> getMaterialRequestsByStatus(RequestStatus status) {
         return materialRequestRepository.findByStatusWithDetails(status).stream()
@@ -119,6 +175,15 @@ public class MaterialRequestService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Lista solicitações de um projeto específico.
+     * 
+     * Retorna todas as solicitações relacionadas a um projeto,
+     * ordenadas por data de criação mais recente.
+     * 
+     * @param projectId ID do projeto
+     * @return List<MaterialRequestSummaryDto> solicitações do projeto
+     */
     @Transactional(readOnly = true)
     public List<MaterialRequestSummaryDto> getMaterialRequestsByProject(Long projectId) {
         return materialRequestRepository.findByProjectIdOrderByCreatedAtDesc(projectId).stream()
@@ -126,6 +191,18 @@ public class MaterialRequestService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Aprova uma solicitação de materiais.
+     * 
+     * Valida disponibilidade de estoque para todos os itens antes
+     * de aprovar. Na aprovação, dá baixa automática no estoque
+     * de todos os materiais solicitados.
+     * 
+     * @param id ID da solicitação a ser aprovada
+     * @param approverId ID do usuário que está aprovando
+     * @return MaterialRequestDetailsDto solicitação aprovada
+     * @throws RuntimeException se solicitação não estiver pendente, usuário não encontrado ou estoque insuficiente
+     */
     public MaterialRequestDetailsDto approveMaterialRequest(Long id, Long approverId) {
         MaterialRequest materialRequest = materialRequestRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Requisição não encontrada"));
@@ -163,6 +240,18 @@ public class MaterialRequestService {
         return convertToDetailsDto(materialRequest);
     }
 
+    /**
+     * Rejeita uma solicitação de materiais.
+     * 
+     * Marca a solicitação como rejeitada com motivo da rejeição,
+     * sem afetar o estoque de materiais.
+     * 
+     * @param id ID da solicitação a ser rejeitada
+     * @param approverId ID do usuário que está rejeitando
+     * @param approvalDto dados da rejeição incluindo motivo
+     * @return MaterialRequestDetailsDto solicitação rejeitada
+     * @throws RuntimeException se solicitação não estiver pendente ou usuário não encontrado
+     */
     public MaterialRequestDetailsDto rejectMaterialRequest(Long id, Long approverId, MaterialRequestApprovalDto approvalDto) {
         MaterialRequest materialRequest = materialRequestRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Requisição não encontrada"));
@@ -182,6 +271,15 @@ public class MaterialRequestService {
         return convertToDetailsDto(materialRequest);
     }
 
+    /**
+     * Converte entidade MaterialRequest para MaterialRequestDetailsDto.
+     * 
+     * Inclui todas as informações da solicitação, dados do solicitante,
+     * projeto, status e itens solicitados com detalhes completos.
+     * 
+     * @param materialRequest entidade da solicitação
+     * @return MaterialRequestDetailsDto dados detalhados para API
+     */
     private MaterialRequestDetailsDto convertToDetailsDto(MaterialRequest materialRequest) {
         MaterialRequestDetailsDto dto = new MaterialRequestDetailsDto();
         dto.setId(materialRequest.getId());

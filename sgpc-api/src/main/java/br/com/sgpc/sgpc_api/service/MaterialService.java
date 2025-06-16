@@ -16,6 +16,25 @@ import br.com.sgpc.sgpc_api.dto.StockMovementDto;
 import br.com.sgpc.sgpc_api.entity.Material;
 import br.com.sgpc.sgpc_api.repository.MaterialRepository;
 
+/**
+ * Serviço responsável pelo gerenciamento de materiais de construção.
+ * 
+ * Esta classe implementa todas as operações relacionadas aos materiais,
+ * incluindo CRUD completo, controle de estoque, alertas de baixo estoque
+ * e operações de movimentação de entrada e saída.
+ * 
+ * Principais funcionalidades:
+ * - CRUD completo de materiais
+ * - Controle de estoque com validações
+ * - Alertas de materiais com baixo estoque
+ * - Busca por nome e fornecedor
+ * - Movimentações de entrada e saída
+ * - Soft delete para preservar histórico
+ * 
+ * @author Sistema SGPC
+ * @version 1.0
+ * @since 2024
+ */
 @Service
 @Transactional
 public class MaterialService {
@@ -23,6 +42,16 @@ public class MaterialService {
     @Autowired
     private MaterialRepository materialRepository;
 
+    /**
+     * Cria um novo material no sistema.
+     * 
+     * Valida se não existe outro material com o mesmo nome e cria
+     * um novo registro com estoque inicial e configurações padrão.
+     * 
+     * @param materialCreateDto dados do material a ser criado
+     * @return MaterialDto dados do material criado
+     * @throws RuntimeException se já existir material com o mesmo nome
+     */
     public MaterialDto createMaterial(MaterialCreateDto materialCreateDto) {
         if (materialRepository.existsByName(materialCreateDto.getName())) {
             throw new RuntimeException("Já existe um material com este nome!");
@@ -31,19 +60,27 @@ public class MaterialService {
         Material material = new Material();
         material.setName(materialCreateDto.getName());
         material.setDescription(materialCreateDto.getDescription());
-        material.setUnitOfMeasure(materialCreateDto.getUnitOfMeasure());
-        material.setUnitPrice(materialCreateDto.getUnitPrice());
+        material.setUnitOfMeasure(materialCreateDto.getUnit());
+        material.setUnitPrice(materialCreateDto.getUnitCost());
         material.setSupplier(materialCreateDto.getSupplier());
         material.setCurrentStock(materialCreateDto.getCurrentStock() != null ? 
-                                materialCreateDto.getCurrentStock() : BigDecimal.ZERO);
+                                BigDecimal.valueOf(materialCreateDto.getCurrentStock()) : BigDecimal.ZERO);
         material.setMinimumStock(materialCreateDto.getMinimumStock() != null ? 
-                               materialCreateDto.getMinimumStock() : BigDecimal.ZERO);
+                               BigDecimal.valueOf(materialCreateDto.getMinimumStock()) : BigDecimal.ZERO);
         material.setIsActive(true);
 
         Material savedMaterial = materialRepository.save(material);
         return convertToDto(savedMaterial);
     }
 
+    /**
+     * Lista todos os materiais ativos do sistema.
+     * 
+     * Retorna apenas materiais ativos ordenados por nome para
+     * facilitar localização e seleção.
+     * 
+     * @return List<MaterialDto> lista de materiais ativos
+     */
     @Transactional(readOnly = true)
     public List<MaterialDto> getAllMaterials() {
         return materialRepository.findAllActiveMaterialsOrderedByName().stream()
@@ -51,12 +88,30 @@ public class MaterialService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Busca um material pelo ID.
+     * 
+     * Retorna apenas materiais ativos para evitar acesso a
+     * materiais que foram desativados.
+     * 
+     * @param id ID do material
+     * @return Optional<MaterialDto> material encontrado ou empty
+     */
     @Transactional(readOnly = true)
     public Optional<MaterialDto> getMaterialById(Long id) {
         return materialRepository.findByIdAndIsActiveTrue(id)
                 .map(this::convertToDto);
     }
 
+    /**
+     * Busca materiais por nome (pesquisa parcial).
+     * 
+     * Realiza busca case-insensitive no nome do material,
+     * retornando apenas materiais ativos.
+     * 
+     * @param name nome ou parte do nome para busca
+     * @return List<MaterialDto> materiais encontrados
+     */
     @Transactional(readOnly = true)
     public List<MaterialDto> searchMaterialsByName(String name) {
         return materialRepository.findByNameContainingIgnoreCaseAndIsActiveTrue(name).stream()
@@ -64,6 +119,15 @@ public class MaterialService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Busca materiais por fornecedor.
+     * 
+     * Realiza busca case-insensitive no nome do fornecedor,
+     * útil para análise de produtos por fornecedor.
+     * 
+     * @param supplier nome ou parte do nome do fornecedor
+     * @return List<MaterialDto> materiais do fornecedor
+     */
     @Transactional(readOnly = true)
     public List<MaterialDto> getMaterialsBySupplier(String supplier) {
         return materialRepository.findBySupplierContainingIgnoreCaseAndIsActiveTrue(supplier).stream()
@@ -71,6 +135,14 @@ public class MaterialService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Lista materiais com estoque abaixo do mínimo.
+     * 
+     * Identifica materiais que precisam de reposição urgente,
+     * facilitando o controle de estoque e compras.
+     * 
+     * @return List<MaterialDto> materiais com baixo estoque
+     */
     @Transactional(readOnly = true)
     public List<MaterialDto> getMaterialsBelowMinimumStock() {
         return materialRepository.findMaterialsBelowMinimumStock().stream()
@@ -78,6 +150,17 @@ public class MaterialService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Atualiza dados de um material existente.
+     * 
+     * Permite atualização parcial dos dados, validando se
+     * o novo nome não está em uso por outro material.
+     * 
+     * @param id ID do material a ser atualizado
+     * @param materialUpdateDto dados para atualização
+     * @return MaterialDto material atualizado
+     * @throws RuntimeException se material não for encontrado ou nome já existir
+     */
     public MaterialDto updateMaterial(Long id, MaterialUpdateDto materialUpdateDto) {
         Material material = materialRepository.findByIdAndIsActiveTrue(id)
                 .orElseThrow(() -> new RuntimeException("Material não encontrado"));
@@ -116,6 +199,15 @@ public class MaterialService {
         return convertToDto(savedMaterial);
     }
 
+    /**
+     * Remove um material do sistema (soft delete).
+     * 
+     * Marca o material como inativo em vez de excluí-lo fisicamente,
+     * preservando o histórico de uso em projetos e tarefas.
+     * 
+     * @param id ID do material a ser removido
+     * @throws RuntimeException se o material não for encontrado
+     */
     public void deleteMaterial(Long id) {
         Material material = materialRepository.findByIdAndIsActiveTrue(id)
                 .orElseThrow(() -> new RuntimeException("Material não encontrado"));
@@ -125,6 +217,17 @@ public class MaterialService {
         materialRepository.save(material);
     }
 
+    /**
+     * Atualiza estoque de um material.
+     * 
+     * Processa movimentações de entrada ou saída de estoque
+     * com validações para evitar estoque negativo.
+     * 
+     * @param id ID do material
+     * @param stockMovementDto dados da movimentação (tipo e quantidade)
+     * @return MaterialDto material com estoque atualizado
+     * @throws RuntimeException se material não for encontrado, tipo inválido ou estoque insuficiente
+     */
     public MaterialDto updateStock(Long id, StockMovementDto stockMovementDto) {
         Material material = materialRepository.findByIdAndIsActiveTrue(id)
                 .orElseThrow(() -> new RuntimeException("Material não encontrado"));
@@ -147,6 +250,17 @@ public class MaterialService {
         return convertToDto(savedMaterial);
     }
 
+    /**
+     * Adiciona quantidade ao estoque de um material.
+     * 
+     * Método conveniente para entrada de estoque, utilizado
+     * em recebimentos e compras de materiais.
+     * 
+     * @param id ID do material
+     * @param quantity quantidade a ser adicionada
+     * @return MaterialDto material com estoque atualizado
+     * @throws RuntimeException se material não for encontrado
+     */
     public MaterialDto addStock(Long id, BigDecimal quantity) {
         Material material = materialRepository.findByIdAndIsActiveTrue(id)
                 .orElseThrow(() -> new RuntimeException("Material não encontrado"));
@@ -156,6 +270,17 @@ public class MaterialService {
         return convertToDto(savedMaterial);
     }
 
+    /**
+     * Remove quantidade do estoque de um material.
+     * 
+     * Método conveniente para saída de estoque, utilizado
+     * em consumo de materiais em projetos e tarefas.
+     * 
+     * @param id ID do material
+     * @param quantity quantidade a ser removida
+     * @return MaterialDto material com estoque atualizado
+     * @throws RuntimeException se material não for encontrado ou estoque insuficiente
+     */
     public MaterialDto removeStock(Long id, BigDecimal quantity) {
         Material material = materialRepository.findByIdAndIsActiveTrue(id)
                 .orElseThrow(() -> new RuntimeException("Material não encontrado"));
@@ -165,6 +290,15 @@ public class MaterialService {
         return convertToDto(savedMaterial);
     }
 
+    /**
+     * Converte entidade Material para MaterialDto.
+     * 
+     * Inclui cálculo automático do indicador de baixo estoque
+     * para facilitar a identificação de materiais críticos.
+     * 
+     * @param material entidade do material
+     * @return MaterialDto dados do material para API
+     */
     private MaterialDto convertToDto(Material material) {
         MaterialDto dto = new MaterialDto();
         dto.setId(material.getId());

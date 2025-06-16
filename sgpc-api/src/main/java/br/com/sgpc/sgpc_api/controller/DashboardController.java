@@ -9,15 +9,54 @@ import org.springframework.web.bind.annotation.RestController;
 
 import br.com.sgpc.sgpc_api.dto.DashboardDto;
 import br.com.sgpc.sgpc_api.service.DashboardService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
+/**
+ * Controller responsável pelos dados do dashboard principal.
+ * 
+ * Este controller fornece endpoint para obtenção de dados
+ * consolidados para exibição no dashboard, incluindo
+ * estatísticas e resumos dos principais módulos do sistema.
+ * 
+ * @author Sistema SGPC
+ * @version 1.0
+ * @since 2024
+ */
 @RestController
 @RequestMapping("/api/dashboard")
 @CrossOrigin(origins = "*", maxAge = 3600)
+@Tag(name = "Dashboard", description = "Endpoint para dados do dashboard principal")
+@SecurityRequirement(name = "bearerAuth")
 public class DashboardController {
 
     @Autowired
     private DashboardService dashboardService;
 
+    /**
+     * Obtém dados consolidados para o dashboard.
+     * 
+     * Retorna estatísticas e resumos de projetos, tarefas, materiais
+     * e outras informações relevantes para exibição no dashboard principal.
+     * 
+     * @return DashboardDto dados consolidados do dashboard
+     */
+    @Operation(
+        summary = "Obter dados do dashboard",
+        description = "Retorna dados consolidados incluindo estatísticas de projetos, tarefas, materiais e outras métricas importantes"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Dados do dashboard obtidos com sucesso",
+                content = @Content(schema = @Schema(implementation = DashboardDto.class))),
+        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
+        @ApiResponse(responseCode = "403", description = "Acesso negado"),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+    })
     @GetMapping
     public ResponseEntity<DashboardDto> getDashboardData() {
         try {

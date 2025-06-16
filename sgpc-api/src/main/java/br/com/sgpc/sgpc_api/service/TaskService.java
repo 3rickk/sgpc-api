@@ -20,6 +20,17 @@ import br.com.sgpc.sgpc_api.repository.ProjectRepository;
 import br.com.sgpc.sgpc_api.repository.TaskRepository;
 import br.com.sgpc.sgpc_api.repository.UserRepository;
 
+/**
+ * Serviço responsável pela lógica de negócio das tarefas.
+ * 
+ * Esta classe implementa todas as operações relacionadas ao gerenciamento
+ * de tarefas, incluindo CRUD, controle de status, atribuição de usuários
+ * e cálculos de progresso.
+ * 
+ * @author Sistema SGPC
+ * @version 1.0
+ * @since 2024
+ */
 @Service
 @Transactional
 public class TaskService {
@@ -33,8 +44,19 @@ public class TaskService {
     @Autowired
     private UserRepository userRepository;
 
-
-
+    /**
+     * Cria uma nova tarefa no sistema.
+     * 
+     * Valida se não existe outra tarefa com o mesmo título no projeto,
+     * verifica a existência do projeto e usuários envolvidos, e cria
+     * a tarefa com os dados fornecidos.
+     * 
+     * @param projectId ID do projeto ao qual a tarefa pertence
+     * @param taskCreateDto dados da tarefa a ser criada
+     * @param createdByUserId ID do usuário que está criando a tarefa
+     * @return TaskViewDto dados da tarefa criada
+     * @throws RuntimeException se projeto não for encontrado, título já existir ou usuário não for encontrado
+     */
     public TaskViewDto createTask(Long projectId, TaskCreateDto taskCreateDto, Long createdByUserId) {
         // Verificar se o projeto existe
         Project project = projectRepository.findById(projectId)
@@ -76,6 +98,12 @@ public class TaskService {
         return convertToViewDto(savedTask);
     }
 
+    /**
+     * Obtém todas as tarefas de um projeto.
+     * 
+     * @param projectId ID do projeto
+     * @return List<TaskViewDto> lista de tarefas do projeto
+     */
     @Transactional(readOnly = true)
     public List<TaskViewDto> getTasksByProject(Long projectId) {
         return taskRepository.findByProjectId(projectId).stream()
@@ -83,6 +111,13 @@ public class TaskService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Obtém tarefas de um projeto por status específico.
+     * 
+     * @param projectId ID do projeto
+     * @param status status das tarefas a serem filtradas
+     * @return List<TaskViewDto> lista de tarefas filtradas por status
+     */
     @Transactional(readOnly = true)
     public List<TaskViewDto> getTasksByProjectAndStatus(Long projectId, TaskStatus status) {
         return taskRepository.findByProjectIdAndStatus(projectId, status).stream()
@@ -90,12 +125,24 @@ public class TaskService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Obtém uma tarefa específica por ID.
+     * 
+     * @param taskId ID da tarefa
+     * @return Optional<TaskViewDto> tarefa encontrada ou vazio se não existir
+     */
     @Transactional(readOnly = true)
     public Optional<TaskViewDto> getTaskById(Long taskId) {
         return taskRepository.findByIdWithDetails(taskId)
                 .map(this::convertToViewDto);
     }
 
+    /**
+     * Obtém tarefas atribuídas a um usuário específico.
+     * 
+     * @param userId ID do usuário
+     * @return List<TaskViewDto> lista de tarefas atribuídas ao usuário
+     */
     @Transactional(readOnly = true)
     public List<TaskViewDto> getTasksByAssignedUser(Long userId) {
         return taskRepository.findByAssignedUserId(userId).stream()
@@ -103,6 +150,15 @@ public class TaskService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Obtém tarefas atrasadas de um projeto.
+     * 
+     * Retorna tarefas que têm data de conclusão planejada anterior
+     * à data atual e ainda não foram concluídas.
+     * 
+     * @param projectId ID do projeto
+     * @return List<TaskViewDto> lista de tarefas atrasadas
+     */
     @Transactional(readOnly = true)
     public List<TaskViewDto> getOverdueTasksByProject(Long projectId) {
         return taskRepository.findOverdueTasksByProject(projectId, LocalDate.now()).stream()
@@ -110,6 +166,17 @@ public class TaskService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Atualiza uma tarefa existente.
+     * 
+     * Permite atualização parcial dos dados da tarefa. Valida se o novo título
+     * não está em uso por outra tarefa no mesmo projeto antes de alterar.
+     * 
+     * @param taskId ID da tarefa a ser atualizada
+     * @param taskUpdateDto dados para atualização (apenas campos não nulos são atualizados)
+     * @return TaskViewDto dados atualizados da tarefa
+     * @throws RuntimeException se tarefa não for encontrada, título já existir ou usuário não for encontrado
+     */
     public TaskViewDto updateTask(Long taskId, TaskCreateDto taskUpdateDto) {
         Task task = taskRepository.findByIdWithDetails(taskId)
                 .orElseThrow(() -> new RuntimeException("Tarefa não encontrada"));
@@ -170,7 +237,18 @@ public class TaskService {
         return convertToViewDto(savedTask);
     }
 
-    // Método específico para atualização de status (otimizado para drag-and-drop do Kanban)
+    /**
+     * Atualiza apenas o status de uma tarefa.
+     * 
+     * Método otimizado para drag-and-drop do quadro Kanban.
+     * Aplica lógica automática baseada na mudança de status, como
+     * definir datas de início/fim e progresso.
+     * 
+     * @param taskId ID da tarefa
+     * @param statusUpdateDto dados para atualização do status
+     * @return TaskViewDto dados atualizados da tarefa
+     * @throws RuntimeException se tarefa não for encontrada
+     */
     public TaskViewDto updateTaskStatus(Long taskId, TaskUpdateStatusDto statusUpdateDto) {
         Task task = taskRepository.findByIdWithDetails(taskId)
                 .orElseThrow(() -> new RuntimeException("Tarefa não encontrada"));
@@ -200,6 +278,12 @@ public class TaskService {
         return convertToViewDto(savedTask);
     }
 
+    /**
+     * Exclui uma tarefa do sistema.
+     * 
+     * @param taskId ID da tarefa a ser excluída
+     * @throws RuntimeException se tarefa não for encontrada
+     */
     public void deleteTask(Long taskId) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Tarefa não encontrada"));
@@ -207,6 +291,13 @@ public class TaskService {
         taskRepository.delete(task);
     }
 
+    /**
+     * Conta o número de tarefas por projeto e status.
+     * 
+     * @param projectId ID do projeto
+     * @param status status das tarefas (pode ser null para contar todas)
+     * @return Long número de tarefas encontradas
+     */
     @Transactional(readOnly = true)
     public Long countTasksByProjectAndStatus(Long projectId, TaskStatus status) {
         if (status == null) {
@@ -215,6 +306,12 @@ public class TaskService {
         return taskRepository.countByProjectIdAndStatus(projectId, status);
     }
 
+    /**
+     * Converte uma entidade Task para DTO de visualização.
+     * 
+     * @param task entidade Task a ser convertida
+     * @return TaskViewDto DTO para visualização
+     */
     private TaskViewDto convertToViewDto(Task task) {
         TaskViewDto dto = new TaskViewDto();
         dto.setId(task.getId());

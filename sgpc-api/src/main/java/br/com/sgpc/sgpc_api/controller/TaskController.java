@@ -32,11 +32,32 @@ import br.com.sgpc.sgpc_api.enums.TaskStatus;
 import br.com.sgpc.sgpc_api.repository.UserRepository;
 import br.com.sgpc.sgpc_api.service.FileStorageService;
 import br.com.sgpc.sgpc_api.service.TaskService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
+/**
+ * Controller responsável pelo gerenciamento de tarefas.
+ * 
+ * Este controller fornece endpoints para CRUD completo de tarefas,
+ * visualização em formato Kanban, controle de status, anexos e
+ * estatísticas de progresso por projeto.
+ * 
+ * @author Sistema SGPC
+ * @version 1.0
+ * @since 2024
+ */
 @RestController
 @RequestMapping("/api/projects/{projectId}/tasks")
 @CrossOrigin(origins = "*", maxAge = 3600)
+@Tag(name = "Gerenciamento de Tarefas", description = "Endpoints para gerenciamento de tarefas, Kanban e anexos")
+@SecurityRequirement(name = "Bearer Authentication")
 public class TaskController {
 
     @Autowired
@@ -48,9 +69,31 @@ public class TaskController {
     @Autowired
     private UserRepository userRepository;
 
+    /**
+     * Cria uma nova tarefa em um projeto.
+     * 
+     * @param projectId ID do projeto ao qual a tarefa pertence
+     * @param taskCreateDto dados da tarefa a ser criada
+     * @return ResponseEntity contendo os dados da tarefa criada
+     * @throws RuntimeException se ocorrer erro na criação
+     */
     @PostMapping
+    @Operation(
+        summary = "Criar nova tarefa",
+        description = "Cria uma nova tarefa dentro de um projeto específico"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Tarefa criada com sucesso",
+                    content = @Content(schema = @Schema(implementation = TaskViewDto.class))),
+        @ApiResponse(responseCode = "400", description = "Dados inválidos"),
+        @ApiResponse(responseCode = "401", description = "Não autorizado"),
+        @ApiResponse(responseCode = "404", description = "Projeto não encontrado"),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+    })
     public ResponseEntity<TaskViewDto> createTask(
+            @Parameter(description = "ID do projeto", required = true)
             @PathVariable Long projectId,
+            @Parameter(description = "Dados da tarefa a ser criada", required = true)
             @Valid @RequestBody TaskCreateDto taskCreateDto) {
         try {
             // Por enquanto usando um ID fixo (usuário admin), 
@@ -64,23 +107,85 @@ public class TaskController {
         }
     }
 
+    /**
+     * Obtém todas as tarefas de um projeto.
+     * 
+     * @param projectId ID do projeto
+     * @return ResponseEntity contendo lista de tarefas do projeto
+     */
     @GetMapping
-    public ResponseEntity<List<TaskViewDto>> getTasksByProject(@PathVariable Long projectId) {
+    @Operation(
+        summary = "Listar tarefas do projeto",
+        description = "Obtém todas as tarefas de um projeto específico"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Lista de tarefas obtida com sucesso"),
+        @ApiResponse(responseCode = "401", description = "Não autorizado"),
+        @ApiResponse(responseCode = "404", description = "Projeto não encontrado")
+    })
+    public ResponseEntity<List<TaskViewDto>> getTasksByProject(
+            @Parameter(description = "ID do projeto", required = true)
+            @PathVariable Long projectId) {
         List<TaskViewDto> tasks = taskService.getTasksByProject(projectId);
         return ResponseEntity.ok(tasks);
     }
 
+    /**
+     * Obtém uma tarefa específica por ID.
+     * 
+     * @param projectId ID do projeto
+     * @param taskId ID da tarefa
+     * @return ResponseEntity contendo os dados da tarefa ou 404 se não encontrada
+     */
     @GetMapping("/{taskId}")
-    public ResponseEntity<TaskViewDto> getTaskById(@PathVariable Long projectId, @PathVariable Long taskId) {
+    @Operation(
+        summary = "Obter tarefa por ID",
+        description = "Obtém os detalhes de uma tarefa específica"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Tarefa encontrada",
+                    content = @Content(schema = @Schema(implementation = TaskViewDto.class))),
+        @ApiResponse(responseCode = "401", description = "Não autorizado"),
+        @ApiResponse(responseCode = "404", description = "Tarefa não encontrada")
+    })
+    public ResponseEntity<TaskViewDto> getTaskById(
+            @Parameter(description = "ID do projeto", required = true)
+            @PathVariable Long projectId, 
+            @Parameter(description = "ID da tarefa", required = true)
+            @PathVariable Long taskId) {
         return taskService.getTaskById(taskId)
                 .map(task -> ResponseEntity.ok(task))
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * Atualiza uma tarefa existente.
+     * 
+     * @param projectId ID do projeto
+     * @param taskId ID da tarefa a ser atualizada
+     * @param taskUpdateDto dados para atualização da tarefa
+     * @return ResponseEntity contendo os dados atualizados da tarefa
+     * @throws RuntimeException se ocorrer erro na atualização
+     */
     @PutMapping("/{taskId}")
+    @Operation(
+        summary = "Atualizar tarefa",
+        description = "Atualiza os dados de uma tarefa existente"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Tarefa atualizada com sucesso",
+                    content = @Content(schema = @Schema(implementation = TaskViewDto.class))),
+        @ApiResponse(responseCode = "400", description = "Dados inválidos"),
+        @ApiResponse(responseCode = "401", description = "Não autorizado"),
+        @ApiResponse(responseCode = "404", description = "Tarefa não encontrada"),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+    })
     public ResponseEntity<TaskViewDto> updateTask(
+            @Parameter(description = "ID do projeto", required = true)
             @PathVariable Long projectId,
+            @Parameter(description = "ID da tarefa", required = true)
             @PathVariable Long taskId,
+            @Parameter(description = "Dados para atualização da tarefa", required = true)
             @Valid @RequestBody TaskCreateDto taskUpdateDto) {
         try {
             TaskViewDto updatedTask = taskService.updateTask(taskId, taskUpdateDto);
@@ -90,8 +195,30 @@ public class TaskController {
         }
     }
 
+    /**
+     * Exclui uma tarefa.
+     * 
+     * @param projectId ID do projeto
+     * @param taskId ID da tarefa a ser excluída
+     * @return ResponseEntity sem conteúdo (204)
+     * @throws RuntimeException se ocorrer erro na exclusão
+     */
     @DeleteMapping("/{taskId}")
-    public ResponseEntity<Void> deleteTask(@PathVariable Long projectId, @PathVariable Long taskId) {
+    @Operation(
+        summary = "Excluir tarefa",
+        description = "Remove uma tarefa do sistema"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "204", description = "Tarefa excluída com sucesso"),
+        @ApiResponse(responseCode = "401", description = "Não autorizado"),
+        @ApiResponse(responseCode = "404", description = "Tarefa não encontrada"),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+    })
+    public ResponseEntity<Void> deleteTask(
+            @Parameter(description = "ID do projeto", required = true)
+            @PathVariable Long projectId, 
+            @Parameter(description = "ID da tarefa", required = true)
+            @PathVariable Long taskId) {
         try {
             taskService.deleteTask(taskId);
             return ResponseEntity.noContent().build();
@@ -100,11 +227,35 @@ public class TaskController {
         }
     }
 
-    // Endpoint específico para atualização de status (drag-and-drop do Kanban)
+    /**
+     * Atualiza apenas o status de uma tarefa.
+     * 
+     * Endpoint otimizado para drag-and-drop do quadro Kanban.
+     * 
+     * @param projectId ID do projeto
+     * @param taskId ID da tarefa
+     * @param statusUpdateDto dados para atualização do status
+     * @return ResponseEntity contendo os dados atualizados da tarefa
+     * @throws RuntimeException se ocorrer erro na atualização
+     */
     @PatchMapping("/{taskId}/status")
+    @Operation(
+        summary = "Atualizar status da tarefa",
+        description = "Endpoint específico para atualização de status (drag-and-drop do Kanban)"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Status atualizado com sucesso",
+                    content = @Content(schema = @Schema(implementation = TaskViewDto.class))),
+        @ApiResponse(responseCode = "400", description = "Status inválido"),
+        @ApiResponse(responseCode = "401", description = "Não autorizado"),
+        @ApiResponse(responseCode = "404", description = "Tarefa não encontrada")
+    })
     public ResponseEntity<TaskViewDto> updateTaskStatus(
+            @Parameter(description = "ID do projeto", required = true)
             @PathVariable Long projectId,
+            @Parameter(description = "ID da tarefa", required = true)
             @PathVariable Long taskId,
+            @Parameter(description = "Novo status da tarefa", required = true)
             @Valid @RequestBody TaskUpdateStatusDto statusUpdateDto) {
         try {
             TaskViewDto updatedTask = taskService.updateTaskStatus(taskId, statusUpdateDto);
@@ -114,10 +265,27 @@ public class TaskController {
         }
     }
 
-    // Endpoints para filtros específicos do Kanban
+    /**
+     * Obtém tarefas por status específico.
+     * 
+     * @param projectId ID do projeto
+     * @param status status das tarefas a serem filtradas
+     * @return ResponseEntity contendo lista de tarefas com o status especificado
+     */
     @GetMapping("/status/{status}")
+    @Operation(
+        summary = "Filtrar tarefas por status",
+        description = "Obtém todas as tarefas de um projeto com status específico"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Lista de tarefas filtradas"),
+        @ApiResponse(responseCode = "400", description = "Status inválido"),
+        @ApiResponse(responseCode = "401", description = "Não autorizado")
+    })
     public ResponseEntity<List<TaskViewDto>> getTasksByStatus(
+            @Parameter(description = "ID do projeto", required = true)
             @PathVariable Long projectId, 
+            @Parameter(description = "Status das tarefas (A_FAZER, EM_ANDAMENTO, CONCLUIDA, BLOQUEADA, CANCELADA)", required = true)
             @PathVariable String status) {
         try {
             TaskStatus taskStatus = TaskStatus.fromString(status);
@@ -128,8 +296,30 @@ public class TaskController {
         }
     }
 
+    /**
+     * Obtém dados para o quadro Kanban.
+     * 
+     * Retorna todas as tarefas organizadas por status para
+     * exibição no formato de quadro Kanban.
+     * 
+     * @param projectId ID do projeto
+     * @return ResponseEntity contendo dados organizados para o Kanban
+     * @throws RuntimeException se ocorrer erro ao obter os dados
+     */
     @GetMapping("/kanban")
-    public ResponseEntity<KanbanBoardDto> getKanbanBoard(@PathVariable Long projectId) {
+    @Operation(
+        summary = "Obter quadro Kanban",
+        description = "Retorna tarefas organizadas por status para exibição em quadro Kanban"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Quadro Kanban obtido com sucesso",
+                    content = @Content(schema = @Schema(implementation = KanbanBoardDto.class))),
+        @ApiResponse(responseCode = "401", description = "Não autorizado"),
+        @ApiResponse(responseCode = "404", description = "Projeto não encontrado")
+    })
+    public ResponseEntity<KanbanBoardDto> getKanbanBoard(
+            @Parameter(description = "ID do projeto", required = true)
+            @PathVariable Long projectId) {
         try {
             KanbanBoardDto kanbanBoard = new KanbanBoardDto();
             
@@ -155,22 +345,76 @@ public class TaskController {
         }
     }
 
+    /**
+     * Obtém tarefas atrasadas de um projeto.
+     * 
+     * @param projectId ID do projeto
+     * @return ResponseEntity contendo lista de tarefas atrasadas
+     */
     @GetMapping("/overdue")
-    public ResponseEntity<List<TaskViewDto>> getOverdueTasks(@PathVariable Long projectId) {
+    @Operation(
+        summary = "Obter tarefas atrasadas",
+        description = "Retorna todas as tarefas do projeto que estão com prazo vencido"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Lista de tarefas atrasadas"),
+        @ApiResponse(responseCode = "401", description = "Não autorizado"),
+        @ApiResponse(responseCode = "404", description = "Projeto não encontrado")
+    })
+    public ResponseEntity<List<TaskViewDto>> getOverdueTasks(
+            @Parameter(description = "ID do projeto", required = true)
+            @PathVariable Long projectId) {
         List<TaskViewDto> overdueTasks = taskService.getOverdueTasksByProject(projectId);
         return ResponseEntity.ok(overdueTasks);
     }
 
+    /**
+     * Obtém tarefas atribuídas a um usuário específico.
+     * 
+     * @param projectId ID do projeto
+     * @param userId ID do usuário
+     * @return ResponseEntity contendo lista de tarefas do usuário
+     */
     @GetMapping("/assigned/{userId}")
+    @Operation(
+        summary = "Obter tarefas por usuário",
+        description = "Retorna todas as tarefas atribuídas a um usuário específico"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Lista de tarefas do usuário"),
+        @ApiResponse(responseCode = "401", description = "Não autorizado"),
+        @ApiResponse(responseCode = "404", description = "Usuário não encontrado")
+    })
     public ResponseEntity<List<TaskViewDto>> getTasksByAssignedUser(
+            @Parameter(description = "ID do projeto", required = true)
             @PathVariable Long projectId, 
+            @Parameter(description = "ID do usuário", required = true)
             @PathVariable Long userId) {
         List<TaskViewDto> tasks = taskService.getTasksByAssignedUser(userId);
         return ResponseEntity.ok(tasks);
     }
 
+    /**
+     * Obtém estatísticas das tarefas do projeto.
+     * 
+     * @param projectId ID do projeto
+     * @return ResponseEntity contendo estatísticas das tarefas
+     * @throws RuntimeException se ocorrer erro ao calcular estatísticas
+     */
     @GetMapping("/statistics")
-    public ResponseEntity<TaskStatisticsDto> getTaskStatistics(@PathVariable Long projectId) {
+    @Operation(
+        summary = "Obter estatísticas das tarefas",
+        description = "Retorna estatísticas detalhadas das tarefas do projeto, incluindo contadores por status e percentual de conclusão"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Estatísticas obtidas com sucesso",
+                    content = @Content(schema = @Schema(implementation = TaskStatisticsDto.class))),
+        @ApiResponse(responseCode = "401", description = "Não autorizado"),
+        @ApiResponse(responseCode = "404", description = "Projeto não encontrado")
+    })
+    public ResponseEntity<TaskStatisticsDto> getTaskStatistics(
+            @Parameter(description = "ID do projeto", required = true)
+            @PathVariable Long projectId) {
         try {
             TaskStatisticsDto statistics = new TaskStatisticsDto();
             
@@ -197,10 +441,36 @@ public class TaskController {
     }
 
     // Endpoints para anexos
+    
+    /**
+     * Faz upload de um anexo para uma tarefa.
+     * 
+     * @param projectId ID do projeto
+     * @param taskId ID da tarefa
+     * @param file arquivo a ser anexado
+     * @param authentication dados do usuário autenticado
+     * @return ResponseEntity contendo dados do anexo criado
+     * @throws RuntimeException se ocorrer erro no upload
+     */
     @PostMapping("/{taskId}/attachments")
+    @Operation(
+        summary = "Upload de anexo para tarefa",
+        description = "Faz upload de um arquivo como anexo de uma tarefa"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Anexo criado com sucesso",
+                    content = @Content(schema = @Schema(implementation = Attachment.class))),
+        @ApiResponse(responseCode = "400", description = "Arquivo inválido"),
+        @ApiResponse(responseCode = "401", description = "Não autorizado"),
+        @ApiResponse(responseCode = "404", description = "Tarefa não encontrada"),
+        @ApiResponse(responseCode = "413", description = "Arquivo muito grande")
+    })
     public ResponseEntity<Attachment> uploadTaskAttachment(
+            @Parameter(description = "ID do projeto", required = true)
             @PathVariable Long projectId,
+            @Parameter(description = "ID da tarefa", required = true)
             @PathVariable Long taskId,
+            @Parameter(description = "Arquivo a ser anexado", required = true)
             @RequestParam("file") MultipartFile file,
             Authentication authentication) {
         try {
@@ -221,9 +491,27 @@ public class TaskController {
         }
     }
 
+    /**
+     * Obtém todos os anexos de uma tarefa.
+     * 
+     * @param projectId ID do projeto
+     * @param taskId ID da tarefa
+     * @return ResponseEntity contendo lista de anexos da tarefa
+     */
     @GetMapping("/{taskId}/attachments")
+    @Operation(
+        summary = "Listar anexos da tarefa",
+        description = "Obtém todos os anexos de uma tarefa específica"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Lista de anexos"),
+        @ApiResponse(responseCode = "401", description = "Não autorizado"),
+        @ApiResponse(responseCode = "404", description = "Tarefa não encontrada")
+    })
     public ResponseEntity<List<Attachment>> getTaskAttachments(
+            @Parameter(description = "ID do projeto", required = true)
             @PathVariable Long projectId,
+            @Parameter(description = "ID da tarefa", required = true)
             @PathVariable Long taskId) {
         // Verificar se a tarefa existe
         taskService.getTaskById(taskId)
@@ -233,8 +521,26 @@ public class TaskController {
         return ResponseEntity.ok(attachments);
     }
 
+    /**
+     * Faz download de um anexo.
+     * 
+     * @param attachmentId ID do anexo
+     * @return ResponseEntity contendo o arquivo para download
+     * @throws RuntimeException se ocorrer erro no download
+     */
     @GetMapping("/attachments/{attachmentId}/download")
-    public ResponseEntity<Resource> downloadTaskAttachment(@PathVariable Long attachmentId) {
+    @Operation(
+        summary = "Download de anexo",
+        description = "Faz download de um anexo específico"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Arquivo para download"),
+        @ApiResponse(responseCode = "401", description = "Não autorizado"),
+        @ApiResponse(responseCode = "404", description = "Anexo não encontrado")
+    })
+    public ResponseEntity<Resource> downloadTaskAttachment(
+            @Parameter(description = "ID do anexo", required = true)
+            @PathVariable Long attachmentId) {
         try {
             Attachment attachment = fileStorageService.getAttachment(attachmentId);
             Resource resource = fileStorageService.loadFileAsResource(attachmentId);
@@ -244,28 +550,64 @@ public class TaskController {
                     .header(HttpHeaders.CONTENT_DISPOSITION, 
                            "attachment; filename=\"" + attachment.getOriginalFilename() + "\"")
                     .body(resource);
-        } catch (IOException e) {
-            throw new RuntimeException("Erro ao baixar arquivo: " + e.getMessage());
+        } catch (Exception e) {
+            throw new RuntimeException("Erro ao fazer download do arquivo: " + e.getMessage());
         }
     }
 
+    /**
+     * Exclui um anexo.
+     * 
+     * @param attachmentId ID do anexo a ser excluído
+     * @return ResponseEntity sem conteúdo (204)
+     * @throws RuntimeException se ocorrer erro na exclusão
+     */
     @DeleteMapping("/attachments/{attachmentId}")
-    public ResponseEntity<Void> deleteTaskAttachment(@PathVariable Long attachmentId) {
+    @Operation(
+        summary = "Excluir anexo",
+        description = "Remove um anexo do sistema"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "204", description = "Anexo excluído com sucesso"),
+        @ApiResponse(responseCode = "401", description = "Não autorizado"),
+        @ApiResponse(responseCode = "404", description = "Anexo não encontrado")
+    })
+    public ResponseEntity<Void> deleteTaskAttachment(
+            @Parameter(description = "ID do anexo", required = true)
+            @PathVariable Long attachmentId) {
         try {
             fileStorageService.deleteFile(attachmentId);
             return ResponseEntity.noContent().build();
-        } catch (IOException e) {
-            throw new RuntimeException("Erro ao deletar arquivo: " + e.getMessage());
+        } catch (Exception e) {
+            throw new RuntimeException("Erro ao deletar anexo: " + e.getMessage());
         }
     }
 
-    // DTOs auxiliares para respostas específicas
+    /**
+     * DTO para dados do quadro Kanban.
+     * 
+     * Representa a organização das tarefas por status para exibição
+     * em formato de quadro Kanban.
+     */
+    @Schema(description = "Dados organizados para exibição em quadro Kanban")
     public static class KanbanBoardDto {
+        
+        @Schema(description = "Tarefas com status 'A Fazer'")
         private List<TaskViewDto> aFazer;
+        
+        @Schema(description = "Tarefas com status 'Em Andamento'")
         private List<TaskViewDto> emAndamento;
+        
+        @Schema(description = "Tarefas com status 'Concluída'")
         private List<TaskViewDto> concluidas;
+        
+        @Schema(description = "Tarefas com status 'Bloqueada'")
         private List<TaskViewDto> bloqueadas;
+        
+        @Schema(description = "Tarefas com status 'Cancelada'")
         private List<TaskViewDto> canceladas;
+        
+        @Schema(description = "Total de tarefas em todos os status")
         private int totalTasks;
 
         // Getters e Setters
@@ -283,13 +625,34 @@ public class TaskController {
         public void setTotalTasks(int totalTasks) { this.totalTasks = totalTasks; }
     }
 
+    /**
+     * DTO para estatísticas das tarefas.
+     * 
+     * Contém contadores e métricas das tarefas por status,
+     * incluindo percentual de conclusão.
+     */
+    @Schema(description = "Estatísticas das tarefas por status e métricas de progresso")
     public static class TaskStatisticsDto {
+        
+        @Schema(description = "Total de tarefas no projeto")
         private Long totalTasks;
+        
+        @Schema(description = "Quantidade de tarefas 'A Fazer'")
         private Long tasksAFazer;
+        
+        @Schema(description = "Quantidade de tarefas 'Em Andamento'")
         private Long tasksEmAndamento;
+        
+        @Schema(description = "Quantidade de tarefas 'Concluídas'")
         private Long tasksConcluidas;
+        
+        @Schema(description = "Quantidade de tarefas 'Bloqueadas'")
         private Long tasksBloqueadas;
+        
+        @Schema(description = "Quantidade de tarefas 'Canceladas'")
         private Long tasksCanceladas;
+        
+        @Schema(description = "Percentual de conclusão do projeto", example = "75.5")
         private Double completionPercentage;
 
         // Getters e Setters

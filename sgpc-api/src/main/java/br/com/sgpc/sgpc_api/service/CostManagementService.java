@@ -22,6 +22,25 @@ import br.com.sgpc.sgpc_api.repository.ServiceRepository;
 import br.com.sgpc.sgpc_api.repository.TaskRepository;
 import br.com.sgpc.sgpc_api.repository.TaskServiceRepository;
 
+/**
+ * Serviço responsável pelo gerenciamento de custos e serviços no sistema.
+ * 
+ * Esta classe implementa as funcionalidades relacionadas à gestão de serviços,
+ * controle de custos de tarefas, atualização de progresso e geração de relatórios
+ * de custos. Integra-se com o sistema de projetos para manter a consistência
+ * dos cálculos de custos e progresso.
+ * 
+ * Principais funcionalidades:
+ * - Gestão de serviços (CRUD)
+ * - Vinculação de serviços a tarefas
+ * - Cálculo automático de custos
+ * - Atualização de progresso de tarefas
+ * - Geração de relatórios de custos
+ * 
+ * @author Sistema SGPC
+ * @version 1.0
+ * @since 2024
+ */
 @Service
 @Transactional
 public class CostManagementService {
@@ -38,7 +57,17 @@ public class CostManagementService {
     @Autowired
     private ProjectService projectService;
 
-    // Gestão de Serviços (RF06)
+    /**
+     * Cria um novo serviço no sistema.
+     * 
+     * Valida se não existe outro serviço com o mesmo nome antes de criar.
+     * O serviço criado inclui custos unitários de mão de obra, materiais
+     * e equipamentos que serão utilizados no cálculo de custos das tarefas.
+     * 
+     * @param serviceCreateDto dados do serviço a ser criado
+     * @return ServiceDto dados do serviço criado
+     * @throws RuntimeException se já existir um serviço com o mesmo nome
+     */
     public ServiceDto createService(ServiceCreateDto serviceCreateDto) {
         if (serviceRepository.existsByName(serviceCreateDto.getName())) {
             throw new RuntimeException("Já existe um serviço com este nome!");
@@ -57,6 +86,11 @@ public class CostManagementService {
         return convertServiceToDto(savedService);
     }
 
+    /**
+     * Lista todos os serviços ativos ordenados por nome.
+     * 
+     * @return List<ServiceDto> lista de serviços ativos
+     */
     @Transactional(readOnly = true)
     public List<ServiceDto> getAllActiveServices() {
         return serviceRepository.findActiveServicesOrderByName().stream()
@@ -64,6 +98,12 @@ public class CostManagementService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Busca serviços por nome usando correspondência parcial.
+     * 
+     * @param name termo de busca para o nome do serviço
+     * @return List<ServiceDto> lista de serviços encontrados
+     */
     @Transactional(readOnly = true)
     public List<ServiceDto> searchServices(String name) {
         return serviceRepository.findByNameContainingIgnoreCase(name).stream()
@@ -71,7 +111,18 @@ public class CostManagementService {
                 .collect(Collectors.toList());
     }
 
-    // Gestão de Serviços em Tarefas
+    /**
+     * Adiciona um serviço a uma tarefa específica.
+     * 
+     * Vincula um serviço existente a uma tarefa com quantidade específica
+     * e opcionalmente um custo unitário personalizado. Após a vinculação,
+     * recalcula automaticamente os custos da tarefa.
+     * 
+     * @param taskId ID da tarefa
+     * @param serviceCreateDto dados do serviço para vinculação
+     * @return TaskServiceDto dados do serviço vinculado à tarefa
+     * @throws RuntimeException se a tarefa ou serviço não for encontrado, ou se o serviço já estiver vinculado
+     */
     public TaskServiceDto addServiceToTask(Long taskId, TaskServiceCreateDto serviceCreateDto) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Tarefa não encontrada"));
@@ -98,6 +149,16 @@ public class CostManagementService {
         return convertTaskServiceToDto(savedTaskService);
     }
 
+    /**
+     * Remove um serviço de uma tarefa.
+     * 
+     * Remove a vinculação entre um serviço e uma tarefa e recalcula
+     * automaticamente os custos da tarefa após a remoção.
+     * 
+     * @param taskId ID da tarefa
+     * @param serviceId ID do serviço
+     * @throws RuntimeException se a vinculação não existir
+     */
     public void removeServiceFromTask(Long taskId, Long serviceId) {
         if (!taskServiceRepository.existsByTaskIdAndServiceId(taskId, serviceId)) {
             throw new RuntimeException("Serviço não encontrado nesta tarefa");
@@ -107,6 +168,12 @@ public class CostManagementService {
         recalculateTaskCosts(taskId);
     }
 
+    /**
+     * Lista todos os serviços vinculados a uma tarefa.
+     * 
+     * @param taskId ID da tarefa
+     * @return List<TaskServiceDto> lista de serviços da tarefa
+     */
     @Transactional(readOnly = true)
     public List<TaskServiceDto> getTaskServices(Long taskId) {
         return taskServiceRepository.findByTaskIdWithServiceDetails(taskId).stream()
@@ -114,7 +181,18 @@ public class CostManagementService {
                 .collect(Collectors.toList());
     }
 
-    // Atualização de Progresso (RF14)
+    /**
+     * Atualiza o progresso de uma tarefa.
+     * 
+     * Atualiza o percentual de progresso da tarefa e opcionalmente
+     * as horas reais trabalhadas. Também pode adicionar notas sobre
+     * o progresso. Após a atualização, recalcula o progresso do projeto.
+     * 
+     * @param taskId ID da tarefa
+     * @param progressUpdateDto dados de atualização do progresso
+     * @return TaskViewDto tarefa atualizada
+     * @throws RuntimeException se a tarefa não for encontrada
+     */
     public TaskViewDto updateTaskProgress(Long taskId, TaskProgressUpdateDto progressUpdateDto) {
         Task task = taskRepository.findByIdWithDetails(taskId)
                 .orElseThrow(() -> new RuntimeException("Tarefa não encontrada"));
@@ -140,7 +218,17 @@ public class CostManagementService {
         return convertTaskToViewDto(savedTask);
     }
 
-    // Cálculo de custos
+    /**
+     * Recalcula os custos de uma tarefa baseado nos serviços vinculados.
+     * 
+     * Calcula separadamente os custos de mão de obra, materiais e equipamentos
+     * somando os custos de todos os serviços vinculados à tarefa multiplicados
+     * pelas suas respectivas quantidades. Após o recálculo, atualiza também
+     * os custos realizados do projeto.
+     * 
+     * @param taskId ID da tarefa
+     * @throws RuntimeException se a tarefa não for encontrada
+     */
     public void recalculateTaskCosts(Long taskId) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Tarefa não encontrada"));
@@ -156,6 +244,16 @@ public class CostManagementService {
         projectService.recalculateProjectRealizedCost(task.getProject().getId());
     }
 
+    /**
+     * Gera relatório de custos de uma tarefa.
+     * 
+     * Cria um relatório detalhado dos custos de uma tarefa incluindo
+     * todos os serviços vinculados e seus respectivos custos.
+     * 
+     * @param taskId ID da tarefa
+     * @return TaskCostReportDto relatório de custos da tarefa
+     * @throws RuntimeException se a tarefa não for encontrada
+     */
     @Transactional(readOnly = true)
     public TaskCostReportDto getTaskCostReport(Long taskId) {
         Task task = taskRepository.findByIdWithDetails(taskId)
@@ -176,7 +274,12 @@ public class CostManagementService {
         return report;
     }
 
-    // Conversores para DTOs
+    /**
+     * Converte entidade Service para ServiceDto.
+     * 
+     * @param service entidade do serviço
+     * @return ServiceDto dados do serviço para API
+     */
     private ServiceDto convertServiceToDto(br.com.sgpc.sgpc_api.entity.Service service) {
         ServiceDto dto = new ServiceDto();
         dto.setId(service.getId());
@@ -193,6 +296,12 @@ public class CostManagementService {
         return dto;
     }
 
+    /**
+     * Converte entidade TaskService para TaskServiceDto.
+     * 
+     * @param taskService entidade do serviço da tarefa
+     * @return TaskServiceDto dados do serviço da tarefa para API
+     */
     private TaskServiceDto convertTaskServiceToDto(TaskService taskService) {
         TaskServiceDto dto = new TaskServiceDto();
         dto.setId(taskService.getId());

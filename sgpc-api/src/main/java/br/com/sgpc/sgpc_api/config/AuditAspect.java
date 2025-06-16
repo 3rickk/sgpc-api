@@ -17,6 +17,37 @@ import br.com.sgpc.sgpc_api.entity.User;
 import br.com.sgpc.sgpc_api.service.AuditLogService;
 import jakarta.servlet.http.HttpServletRequest;
 
+/**
+ * Aspecto para auditoria automática de operações no sistema SGPC.
+ * 
+ * Esta classe implementa Aspect-Oriented Programming (AOP) para capturar
+ * automaticamente operações CRUD importantes e registrar logs de auditoria.
+ * Utiliza interceptação transparente via pointcuts do Spring AOP.
+ * 
+ * Funcionalidades de auditoria:
+ * - Projetos: CREATE, UPDATE, DELETE
+ * - Tarefas: CREATE, UPDATE
+ * - Solicitações de Materiais: CREATE, APPROVE, REJECT
+ * - Usuários: CREATE, UPDATE
+ * 
+ * Informações capturadas:
+ * - Tipo de entidade e ID
+ * - Operação realizada (CREATE/UPDATE/DELETE)
+ * - IP do cliente (com suporte a proxies)
+ * - Timestamp automático
+ * - Detalhes específicos por entidade
+ * 
+ * Benefícios:
+ * - Auditoria transparente e automática
+ * - Rastreabilidade completa de operações
+ * - Conformidade com regulamentações
+ * - Detecção de atividades suspeitas
+ * - Histórico completo para análise
+ * 
+ * @author Sistema SGPC
+ * @version 1.0
+ * @since 2024
+ */
 @Aspect
 @Component
 public class AuditAspect {
@@ -26,7 +57,15 @@ public class AuditAspect {
     @Autowired
     private AuditLogService auditLogService;
 
-    // Intercepta criação de projetos
+    /**
+     * Intercepta criação de projetos.
+     * 
+     * Captura automaticamente quando um projeto é criado via ProjectService
+     * e registra um log de auditoria com os detalhes da operação.
+     * 
+     * @param joinPoint informações do método interceptado
+     * @param result objeto Project retornado pelo método
+     */
     @AfterReturning(pointcut = "execution(* br.com.sgpc.sgpc_api.service.ProjectService.create*(..))", returning = "result")
     public void auditProjectCreation(JoinPoint joinPoint, Object result) {
         if (result instanceof Project) {
@@ -36,7 +75,15 @@ public class AuditAspect {
         }
     }
 
-    // Intercepta atualização de projetos
+    /**
+     * Intercepta atualização de projetos.
+     * 
+     * Captura automaticamente quando um projeto é atualizado via ProjectService
+     * e registra um log de auditoria com os detalhes da modificação.
+     * 
+     * @param joinPoint informações do método interceptado
+     * @param result objeto Project retornado pelo método
+     */
     @AfterReturning(pointcut = "execution(* br.com.sgpc.sgpc_api.service.ProjectService.update*(..))", returning = "result")
     public void auditProjectUpdate(JoinPoint joinPoint, Object result) {
         if (result instanceof Project) {
@@ -46,7 +93,14 @@ public class AuditAspect {
         }
     }
 
-    // Intercepta exclusão de projetos
+    /**
+     * Intercepta exclusão de projetos.
+     * 
+     * Captura automaticamente quando um projeto é excluído via ProjectService.
+     * Como o objeto já foi deletado, captura o ID dos argumentos do método.
+     * 
+     * @param joinPoint informações do método interceptado
+     */
     @AfterReturning(pointcut = "execution(* br.com.sgpc.sgpc_api.service.ProjectService.delete*(..))")
     public void auditProjectDeletion(JoinPoint joinPoint) {
         Object[] args = joinPoint.getArgs();
@@ -57,7 +111,15 @@ public class AuditAspect {
         }
     }
 
-    // Intercepta criação de tarefas
+    /**
+     * Intercepta criação de tarefas.
+     * 
+     * Captura automaticamente quando uma tarefa é criada via TaskService
+     * e registra um log de auditoria com os detalhes da operação.
+     * 
+     * @param joinPoint informações do método interceptado
+     * @param result objeto Task retornado pelo método
+     */
     @AfterReturning(pointcut = "execution(* br.com.sgpc.sgpc_api.service.TaskService.create*(..))", returning = "result")
     public void auditTaskCreation(JoinPoint joinPoint, Object result) {
         if (result instanceof Task) {
@@ -67,7 +129,15 @@ public class AuditAspect {
         }
     }
 
-    // Intercepta atualização de tarefas
+    /**
+     * Intercepta atualização de tarefas.
+     * 
+     * Captura automaticamente quando uma tarefa é atualizada via TaskService,
+     * incluindo mudanças de status, atribuições e outras modificações.
+     * 
+     * @param joinPoint informações do método interceptado
+     * @param result objeto Task retornado pelo método
+     */
     @AfterReturning(pointcut = "execution(* br.com.sgpc.sgpc_api.service.TaskService.update*(..))", returning = "result")
     public void auditTaskUpdate(JoinPoint joinPoint, Object result) {
         if (result instanceof Task) {
@@ -77,7 +147,15 @@ public class AuditAspect {
         }
     }
 
-    // Intercepta criação de requisições de material
+    /**
+     * Intercepta criação de solicitações de materiais.
+     * 
+     * Captura automaticamente quando uma solicitação de material é criada
+     * via MaterialRequestService para rastreabilidade do processo.
+     * 
+     * @param joinPoint informações do método interceptado
+     * @param result objeto MaterialRequest retornado pelo método
+     */
     @AfterReturning(pointcut = "execution(* br.com.sgpc.sgpc_api.service.MaterialRequestService.create*(..))", returning = "result")
     public void auditMaterialRequestCreation(JoinPoint joinPoint, Object result) {
         if (result instanceof MaterialRequest) {
@@ -87,7 +165,15 @@ public class AuditAspect {
         }
     }
 
-    // Intercepta aprovação/rejeição de requisições
+    /**
+     * Intercepta aprovação e rejeição de solicitações de materiais.
+     * 
+     * Captura automaticamente quando uma solicitação é aprovada ou rejeitada
+     * via MaterialRequestService, registrando a decisão tomada.
+     * 
+     * @param joinPoint informações do método interceptado
+     * @param result objeto MaterialRequest retornado pelo método
+     */
     @AfterReturning(pointcut = "execution(* br.com.sgpc.sgpc_api.service.MaterialRequestService.approve*(..))" +
                              " || execution(* br.com.sgpc.sgpc_api.service.MaterialRequestService.reject*(..))", 
                    returning = "result")
@@ -100,7 +186,15 @@ public class AuditAspect {
         }
     }
 
-    // Intercepta criação de usuários
+    /**
+     * Intercepta criação de usuários.
+     * 
+     * Captura automaticamente quando um usuário é criado via UserService
+     * para rastreabilidade do gerenciamento de usuários.
+     * 
+     * @param joinPoint informações do método interceptado
+     * @param result objeto User retornado pelo método
+     */
     @AfterReturning(pointcut = "execution(* br.com.sgpc.sgpc_api.service.UserService.create*(..))", returning = "result")
     public void auditUserCreation(JoinPoint joinPoint, Object result) {
         if (result instanceof User) {
@@ -110,7 +204,15 @@ public class AuditAspect {
         }
     }
 
-    // Intercepta atualização de usuários
+    /**
+     * Intercepta atualização de usuários.
+     * 
+     * Captura automaticamente quando um usuário é atualizado via UserService,
+     * incluindo mudanças de perfil, roles e outras modificações.
+     * 
+     * @param joinPoint informações do método interceptado
+     * @param result objeto User retornado pelo método
+     */
     @AfterReturning(pointcut = "execution(* br.com.sgpc.sgpc_api.service.UserService.update*(..))", returning = "result")
     public void auditUserUpdate(JoinPoint joinPoint, Object result) {
         if (result instanceof User) {
@@ -121,23 +223,36 @@ public class AuditAspect {
     }
 
     /**
-     * Obtém o IP do cliente da requisição HTTP atual
+     * Obtém o IP do cliente da requisição HTTP atual.
+     * 
+     * Tenta extrair o IP real do cliente considerando proxies e load balancers
+     * através dos cabeçalhos X-Forwarded-For e X-Real-IP.
+     * 
+     * Ordem de prioridade:
+     * 1. X-Forwarded-For (primeiro IP da lista)
+     * 2. X-Real-IP
+     * 3. RemoteAddr direto
+     * 
+     * @return String IP do cliente ou "unknown" se não conseguir obter
      */
     private String getClientIp() {
         try {
             ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
             HttpServletRequest request = attrs.getRequest();
             
+            // Tenta X-Forwarded-For primeiro (para proxies/load balancers)
             String xForwardedFor = request.getHeader("X-Forwarded-For");
             if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
                 return xForwardedFor.split(",")[0].trim();
             }
             
+            // Tenta X-Real-IP como alternativa
             String xRealIp = request.getHeader("X-Real-IP");
             if (xRealIp != null && !xRealIp.isEmpty()) {
                 return xRealIp;
             }
             
+            // Fallback para IP direto
             return request.getRemoteAddr();
         } catch (Exception e) {
             logger.warn("Não foi possível obter IP do cliente: {}", e.getMessage());

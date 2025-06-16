@@ -29,6 +29,17 @@ import br.com.sgpc.sgpc_api.repository.TaskRepository;
 import br.com.sgpc.sgpc_api.repository.TaskServiceRepository;
 import br.com.sgpc.sgpc_api.repository.UserRepository;
 
+/**
+ * Serviço responsável pela lógica de negócio dos projetos.
+ * 
+ * Esta classe implementa todas as operações relacionadas ao gerenciamento
+ * de projetos de construção, incluindo CRUD, gerenciamento de equipes,
+ * controle de orçamento e cálculos de progresso.
+ * 
+ * @author Sistema SGPC
+ * @version 1.0
+ * @since 2024
+ */
 @Service
 @Transactional
 public class ProjectService {
@@ -47,6 +58,16 @@ public class ProjectService {
     @Autowired
     private TaskServiceRepository taskServiceRepository;
 
+    /**
+     * Cria um novo projeto no sistema.
+     * 
+     * Valida se não existe outro projeto com o mesmo nome, cria a entidade
+     * Project com os dados fornecidos e associa os membros da equipe especificados.
+     * 
+     * @param projectCreateDto dados para criação do projeto
+     * @return ProjectDetailsDto dados completos do projeto criado
+     * @throws RuntimeException se já existir projeto com o mesmo nome ou usuário não for encontrado
+     */
     public ProjectDetailsDto createProject(ProjectCreateDto projectCreateDto) {
         if (projectRepository.existsByName(projectCreateDto.getName())) {
             throw new RuntimeException("Já existe um projeto com este nome!");
@@ -127,6 +148,17 @@ public class ProjectService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Atualiza os dados de um projeto existente.
+     * 
+     * Permite atualização parcial dos dados do projeto. Valida se o novo nome
+     * não está em uso por outro projeto antes de alterar.
+     * 
+     * @param id identificador único do projeto
+     * @param projectUpdateDto dados para atualização (apenas campos não nulos são atualizados)
+     * @return ProjectDetailsDto dados atualizados do projeto
+     * @throws RuntimeException se projeto não for encontrado, nome já existir ou usuário não for encontrado
+     */
     public ProjectDetailsDto updateProject(Long id, ProjectUpdateDto projectUpdateDto) {
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
@@ -427,7 +459,7 @@ public class ProjectService {
                 yield 50; // Default para em andamento
             }
             case CONCLUIDO -> 100;
-            case SUSPENSO, CANCELADO -> 0;
+            case PAUSADO, CANCELADO -> 0;
         };
     }
 

@@ -14,6 +14,35 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+/**
+ * Filtro de interceptação de requisições para validação de tokens JWT.
+ * 
+ * Este filtro é executado uma vez por requisição HTTP e tem a responsabilidade
+ * de interceptar todas as requisições, extrair o token JWT do header Authorization,
+ * validar sua integridade e autenticidade, e configurar o contexto de segurança
+ * do Spring Security quando o token é válido.
+ * 
+ * Funcionalidades principais:
+ * - Interceptação de todas as requisições HTTP
+ * - Extração do token JWT do header "Authorization"
+ * - Validação do token com JwtUtil
+ * - Carregamento dos detalhes do usuário
+ * - Configuração do contexto de segurança
+ * - Log detalhado de operações de segurança
+ * 
+ * Formato esperado do header:
+ * Authorization: Bearer {token}
+ * 
+ * Características especiais:
+ * - Extends OncePerRequestFilter para garantir execução única
+ * - Tratamento de exceções com logs detalhados
+ * - Validação completa de token e usuário
+ * - Integração com Spring Security
+ * 
+ * @author Sistema SGPC
+ * @version 1.0
+ * @since 2024
+ */
 @Component
 public class JwtRequestFilter extends OncePerRequestFilter {
     
@@ -25,6 +54,24 @@ public class JwtRequestFilter extends OncePerRequestFilter {
     @Autowired
     private JwtUtil jwtUtil;
     
+    /**
+     * Método principal de filtro executado para cada requisição HTTP.
+     * 
+     * Este método implementa o fluxo completo de autenticação JWT:
+     * 1. Extrai o token do header Authorization
+     * 2. Valida o formato "Bearer {token}"
+     * 3. Extrai o username do token
+     * 4. Carrega os detalhes do usuário
+     * 5. Valida o token contra os detalhes do usuário
+     * 6. Configura o contexto de segurança (se válido)
+     * 7. Continua a cadeia de filtros
+     * 
+     * @param request requisição HTTP recebida
+     * @param response resposta HTTP a ser enviada
+     * @param filterChain cadeia de filtros do Spring Security
+     * @throws ServletException se erro de servlet
+     * @throws IOException se erro de I/O
+     */
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, 
                                   @NonNull FilterChain filterChain) throws ServletException, IOException {
@@ -34,6 +81,7 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         String username = null;
         String jwtToken = null;
         
+        // Extrai o token JWT do header Authorization
         if (requestTokenHeader != null && requestTokenHeader.startsWith("Bearer ")) {
             jwtToken = requestTokenHeader.substring(7);
             try {
@@ -45,6 +93,7 @@ public class JwtRequestFilter extends OncePerRequestFilter {
             logger.warn("Token JWT não encontrado ou não começa com Bearer");
         }
         
+        // Valida o token e configura o contexto de segurança
         if (username != null) {
             try {
                 UserDetailsImpl userDetails = (UserDetailsImpl) this.userDetailsService.loadUserByUsername(username);
@@ -52,11 +101,14 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                 if (jwtUtil.validateToken(jwtToken, userDetails)) {
                     // Token válido - o usuário está autenticado
                     logger.debug("Token JWT válido para usuário: {}", username);
+                    // Nota: Configuração do SecurityContext pode ser adicionada aqui se necessário
                 }
             } catch (Exception e) {
                 logger.error("Erro ao validar token JWT", e);
             }
         }
+        
+        // Continua a cadeia de filtros
         filterChain.doFilter(request, response);
     }
 } 

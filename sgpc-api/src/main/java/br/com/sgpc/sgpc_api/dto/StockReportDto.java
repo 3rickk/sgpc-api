@@ -3,124 +3,67 @@ package br.com.sgpc.sgpc_api.dto;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+/**
+ * DTO para relatório de estoque de materiais.
+ * 
+ * Contém informações detalhadas sobre a situação do estoque:
+ * - Quantidades atual e mínima
+ * - Indicadores de baixo estoque
+ * - Valores financeiros (custo unitário e total)
+ * - Informações do fornecedor
+ * - Data de última atualização
+ * 
+ * Essencial para:
+ * - Controle de reposição
+ * - Análise de valor imobilizado
+ * - Planejamento de compras
+ * - Gestão de fornecedores
+ * 
+ * @author Sistema SGPC
+ * @version 1.0
+ * @since 2024
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Schema(description = "Relatório de estoque de um material")
 public class StockReportDto {
+
+    @Schema(description = "ID do material", example = "1")
     private Long materialId;
+
+    @Schema(description = "Nome do material", example = "Cimento Portland CP-II")
     private String materialName;
+
+    @Schema(description = "Categoria do material", example = "Cimento")
     private String category;
+
+    @Schema(description = "Unidade de medida", example = "saco")
     private String unit;
+
+    @Schema(description = "Quantidade atual em estoque", example = "150")
     private Integer currentQuantity;
+
+    @Schema(description = "Quantidade mínima recomendada", example = "50")
     private Integer minimumQuantity;
+
+    @Schema(description = "Indica se está com baixo estoque", example = "false")
     private Boolean lowStock;
+
+    @Schema(description = "Custo unitário do material", example = "28.50")
     private BigDecimal unitCost;
+
+    @Schema(description = "Valor total do material em estoque", example = "4275.00")
     private BigDecimal totalValue;
+
+    @Schema(description = "Data da última atualização", example = "2024-03-15")
     private LocalDate lastUpdated;
+
+    @Schema(description = "Nome do fornecedor", example = "Cimentos Brasil Ltda")
     private String supplier;
-
-    // Construtores
-    public StockReportDto() {}
-
-    public StockReportDto(Long materialId, String materialName, String category, String unit,
-                         Integer currentQuantity, Integer minimumQuantity, Boolean lowStock,
-                         BigDecimal unitCost, BigDecimal totalValue, LocalDate lastUpdated, String supplier) {
-        this.materialId = materialId;
-        this.materialName = materialName;
-        this.category = category;
-        this.unit = unit;
-        this.currentQuantity = currentQuantity;
-        this.minimumQuantity = minimumQuantity;
-        this.lowStock = lowStock;
-        this.unitCost = unitCost;
-        this.totalValue = totalValue;
-        this.lastUpdated = lastUpdated;
-        this.supplier = supplier;
-    }
-
-    // Getters e Setters
-    public Long getMaterialId() {
-        return materialId;
-    }
-
-    public void setMaterialId(Long materialId) {
-        this.materialId = materialId;
-    }
-
-    public String getMaterialName() {
-        return materialName;
-    }
-
-    public void setMaterialName(String materialName) {
-        this.materialName = materialName;
-    }
-
-    public String getCategory() {
-        return category;
-    }
-
-    public void setCategory(String category) {
-        this.category = category;
-    }
-
-    public String getUnit() {
-        return unit;
-    }
-
-    public void setUnit(String unit) {
-        this.unit = unit;
-    }
-
-    public Integer getCurrentQuantity() {
-        return currentQuantity;
-    }
-
-    public void setCurrentQuantity(Integer currentQuantity) {
-        this.currentQuantity = currentQuantity;
-    }
-
-    public Integer getMinimumQuantity() {
-        return minimumQuantity;
-    }
-
-    public void setMinimumQuantity(Integer minimumQuantity) {
-        this.minimumQuantity = minimumQuantity;
-    }
-
-    public Boolean getLowStock() {
-        return lowStock;
-    }
-
-    public void setLowStock(Boolean lowStock) {
-        this.lowStock = lowStock;
-    }
-
-    public BigDecimal getUnitCost() {
-        return unitCost;
-    }
-
-    public void setUnitCost(BigDecimal unitCost) {
-        this.unitCost = unitCost;
-    }
-
-    public BigDecimal getTotalValue() {
-        return totalValue;
-    }
-
-    public void setTotalValue(BigDecimal totalValue) {
-        this.totalValue = totalValue;
-    }
-
-    public LocalDate getLastUpdated() {
-        return lastUpdated;
-    }
-
-    public void setLastUpdated(LocalDate lastUpdated) {
-        this.lastUpdated = lastUpdated;
-    }
-
-    public String getSupplier() {
-        return supplier;
-    }
-
-    public void setSupplier(String supplier) {
-        this.supplier = supplier;
-    }
 } 

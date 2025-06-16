@@ -3,166 +3,76 @@ package br.com.sgpc.sgpc_api.dto;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+/**
+ * DTO para relatório consolidado de projetos.
+ * 
+ * Contém informações completas para análise de projetos incluindo:
+ * - Dados básicos do projeto (nome, cliente, datas)
+ * - Progresso e status atual
+ * - Informações orçamentárias
+ * - Métricas de tarefas
+ * - Indicadores de desempenho (atraso, dias restantes)
+ * 
+ * Usado nos relatórios gerenciais para visão consolidada
+ * do portfólio de projetos da empresa.
+ * 
+ * @author Sistema SGPC
+ * @version 1.0
+ * @since 2024
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Schema(description = "Relatório consolidado de um projeto")
 public class ProjectReportDto {
+
+    @Schema(description = "ID único do projeto", example = "1")
     private Long id;
+
+    @Schema(description = "Nome do projeto", example = "Construção Residencial Vila Nova")
     private String name;
+
+    @Schema(description = "Nome do cliente", example = "João Silva")
     private String client;
+
+    @Schema(description = "Data planejada de início", example = "2024-01-15")
     private LocalDate startDatePlanned;
+
+    @Schema(description = "Data planejada de conclusão", example = "2024-06-30")
     private LocalDate endDatePlanned;
+
+    @Schema(description = "Data real de início", example = "2024-01-20")
     private LocalDate startDateActual;
+
+    @Schema(description = "Data real de conclusão", example = "2024-07-05")
     private LocalDate endDateActual;
+
+    @Schema(description = "Status atual do projeto", example = "Em Andamento")
     private String status;
+
+    @Schema(description = "Percentual de progresso (0-100)", example = "65")
     private Integer progressPercentage;
+
+    @Schema(description = "Orçamento total aprovado", example = "250000.00")
     private BigDecimal totalBudget;
+
+    @Schema(description = "Orçamento já utilizado", example = "162500.00")
     private BigDecimal usedBudget;
+
+    @Schema(description = "Número total de tarefas", example = "28")
     private Integer totalTasks;
+
+    @Schema(description = "Número de tarefas concluídas", example = "18")
     private Integer completedTasks;
+
+    @Schema(description = "Indica se o projeto está atrasado", example = "false")
     private Boolean delayed;
+
+    @Schema(description = "Dias restantes para conclusão planejada", example = "45")
     private Long daysRemaining;
-
-    // Construtores
-    public ProjectReportDto() {}
-
-    public ProjectReportDto(Long id, String name, String client, LocalDate startDatePlanned,
-                           LocalDate endDatePlanned, LocalDate startDateActual, LocalDate endDateActual,
-                           String status, Integer progressPercentage, BigDecimal totalBudget, 
-                           BigDecimal usedBudget, Integer totalTasks, Integer completedTasks, 
-                           Boolean delayed, Long daysRemaining) {
-        this.id = id;
-        this.name = name;
-        this.client = client;
-        this.startDatePlanned = startDatePlanned;
-        this.endDatePlanned = endDatePlanned;
-        this.startDateActual = startDateActual;
-        this.endDateActual = endDateActual;
-        this.status = status;
-        this.progressPercentage = progressPercentage;
-        this.totalBudget = totalBudget;
-        this.usedBudget = usedBudget;
-        this.totalTasks = totalTasks;
-        this.completedTasks = completedTasks;
-        this.delayed = delayed;
-        this.daysRemaining = daysRemaining;
-    }
-
-    // Getters e Setters
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getClient() {
-        return client;
-    }
-
-    public void setClient(String client) {
-        this.client = client;
-    }
-
-    public LocalDate getStartDatePlanned() {
-        return startDatePlanned;
-    }
-
-    public void setStartDatePlanned(LocalDate startDatePlanned) {
-        this.startDatePlanned = startDatePlanned;
-    }
-
-    public LocalDate getEndDatePlanned() {
-        return endDatePlanned;
-    }
-
-    public void setEndDatePlanned(LocalDate endDatePlanned) {
-        this.endDatePlanned = endDatePlanned;
-    }
-
-    public LocalDate getStartDateActual() {
-        return startDateActual;
-    }
-
-    public void setStartDateActual(LocalDate startDateActual) {
-        this.startDateActual = startDateActual;
-    }
-
-    public LocalDate getEndDateActual() {
-        return endDateActual;
-    }
-
-    public void setEndDateActual(LocalDate endDateActual) {
-        this.endDateActual = endDateActual;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public Integer getProgressPercentage() {
-        return progressPercentage;
-    }
-
-    public void setProgressPercentage(Integer progressPercentage) {
-        this.progressPercentage = progressPercentage;
-    }
-
-    public BigDecimal getTotalBudget() {
-        return totalBudget;
-    }
-
-    public void setTotalBudget(BigDecimal totalBudget) {
-        this.totalBudget = totalBudget;
-    }
-
-    public BigDecimal getUsedBudget() {
-        return usedBudget;
-    }
-
-    public void setUsedBudget(BigDecimal usedBudget) {
-        this.usedBudget = usedBudget;
-    }
-
-    public Integer getTotalTasks() {
-        return totalTasks;
-    }
-
-    public void setTotalTasks(Integer totalTasks) {
-        this.totalTasks = totalTasks;
-    }
-
-    public Integer getCompletedTasks() {
-        return completedTasks;
-    }
-
-    public void setCompletedTasks(Integer completedTasks) {
-        this.completedTasks = completedTasks;
-    }
-
-    public Boolean getDelayed() {
-        return delayed;
-    }
-
-    public void setDelayed(Boolean delayed) {
-        this.delayed = delayed;
-    }
-
-    public Long getDaysRemaining() {
-        return daysRemaining;
-    }
-
-    public void setDaysRemaining(Long daysRemaining) {
-        this.daysRemaining = daysRemaining;
-    }
 } 

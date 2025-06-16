@@ -16,6 +16,32 @@ import br.com.sgpc.sgpc_api.entity.Project;
 import br.com.sgpc.sgpc_api.entity.Task;
 import br.com.sgpc.sgpc_api.entity.User;
 
+/**
+ * Serviço responsável pelo sistema de notificações por email.
+ * 
+ * Este serviço gerencia o envio de notificações automáticas para usuários
+ * do sistema SGPC, incluindo alertas de tarefas, aprovações de materiais,
+ * atrasos em projetos e outros eventos importantes do sistema.
+ * 
+ * Funcionalidades principais:
+ * - Notificações de requisições de material
+ * - Alertas de tarefas atribuídas e em atraso
+ * - Notificações de aprovação/rejeição
+ * - Alertas de orçamento e prazos
+ * - Execução assíncrona para performance
+ * - Configuração habilitável/desabilitável
+ * 
+ * Características especiais:
+ * - Processamento assíncrono com @Async
+ * - Templates de email padronizados
+ * - Configuração flexível via properties
+ * - Log detalhado de envios e erros
+ * - Integração com Spring Mail
+ * 
+ * @author Sistema SGPC
+ * @version 1.0
+ * @since 2024
+ */
 @Service
 public class NotificationService {
 
@@ -30,7 +56,15 @@ public class NotificationService {
     @Value("${app.notification.enabled:true}")
     private boolean notificationEnabled;
 
-    // Notificação para nova requisição de material
+    /**
+     * Notifica aprovadores sobre nova requisição de material.
+     * 
+     * Envia email assíncrono para todos os usuários com permissão
+     * de aprovação quando uma nova requisição é criada.
+     * 
+     * @param request requisição de material criada
+     * @param approvers lista de usuários aprovadores
+     */
     @Async
     public void notifyNewMaterialRequest(MaterialRequest request, List<User> approvers) {
         if (!notificationEnabled) {
@@ -57,7 +91,15 @@ public class NotificationService {
         }
     }
 
-    // Notificação para tarefa atribuída
+    /**
+     * Notifica usuário sobre nova tarefa atribuída.
+     * 
+     * Envia email automático quando uma tarefa é atribuída
+     * a um usuário específico.
+     * 
+     * @param task tarefa atribuída
+     * @param assignee usuário que recebeu a atribuição
+     */
     @Async
     public void notifyTaskAssigned(Task task, User assignee) {
         if (!notificationEnabled) {
@@ -80,7 +122,14 @@ public class NotificationService {
         sendEmail(assignee.getEmail(), subject, message);
     }
 
-    // Notificação para requisição aprovada/rejeitada
+    /**
+     * Notifica solicitante sobre mudança de status da requisição.
+     * 
+     * Informa quando uma requisição de material é aprovada
+     * ou rejeitada pelos responsáveis.
+     * 
+     * @param request requisição com status alterado
+     */
     @Async
     public void notifyMaterialRequestStatusChanged(MaterialRequest request) {
         if (!notificationEnabled) {
@@ -104,7 +153,14 @@ public class NotificationService {
         sendEmail(request.getRequester().getEmail(), subject, message);
     }
 
-    // Notificação para atraso em tarefa
+    /**
+     * Alerta sobre tarefa em atraso.
+     * 
+     * Notifica o usuário responsável quando uma tarefa
+     * ultrapassa a data prevista de conclusão.
+     * 
+     * @param task tarefa em atraso
+     */
     @Async
     public void notifyTaskOverdue(Task task) {
         if (!notificationEnabled) {
@@ -131,7 +187,15 @@ public class NotificationService {
         }
     }
 
-    // Notificação para estouro de orçamento
+    /**
+     * Alerta sobre estouro de orçamento do projeto.
+     * 
+     * Notifica o gerente quando o projeto se aproxima
+     * ou ultrapassa o orçamento previsto.
+     * 
+     * @param project projeto com orçamento comprometido
+     * @param projectManager gerente responsável pelo projeto
+     */
     @Async
     public void notifyBudgetOverrun(Project project, User projectManager) {
         if (!notificationEnabled) {
@@ -154,7 +218,16 @@ public class NotificationService {
         sendEmail(projectManager.getEmail(), subject, message);
     }
 
-    // Método privado para envio de email
+    /**
+     * Método privado para envio de email.
+     * 
+     * Configura e envia mensagem usando JavaMailSender.
+     * Inclui tratamento de erros e logging de operações.
+     * 
+     * @param to endereço de email destinatário
+     * @param subject assunto da mensagem
+     * @param text corpo da mensagem
+     */
     private void sendEmail(String to, String subject, String text) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();

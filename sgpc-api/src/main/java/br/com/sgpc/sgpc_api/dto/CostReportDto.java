@@ -3,125 +3,60 @@ package br.com.sgpc.sgpc_api.dto;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+/**
+ * DTO para relatório de custos de projetos.
+ * 
+ * Contém análise financeira detalhada incluindo:
+ * - Orçamento vs gastos realizados
+ * - Separação por categorias de custo
+ * - Percentual de utilização do orçamento
+ * - Indicadores de estouro orçamentário
+ * 
+ * @author Sistema SGPC
+ * @version 1.0
+ * @since 2024
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Schema(description = "Relatório de custos de um projeto")
 public class CostReportDto {
+
+    @Schema(description = "ID do projeto", example = "1")
     private Long projectId;
+
+    @Schema(description = "Nome do projeto", example = "Construção Residencial Vila Nova")
     private String projectName;
+
+    @Schema(description = "Nome do cliente", example = "João Silva")
     private String client;
+
+    @Schema(description = "Orçamento total aprovado", example = "250000.00")
     private BigDecimal totalBudget;
+
+    @Schema(description = "Custos com materiais", example = "97500.00")
     private BigDecimal materialCosts;
+
+    @Schema(description = "Custos com serviços", example = "65000.00")
     private BigDecimal serviceCosts;
+
+    @Schema(description = "Total de custos realizados", example = "162500.00")
     private BigDecimal totalCosts;
+
+    @Schema(description = "Orçamento restante", example = "87500.00")
     private BigDecimal remainingBudget;
+
+    @Schema(description = "Percentual de utilização do orçamento", example = "65.0")
     private Double budgetUtilizationPercent;
+
+    @Schema(description = "Indica se estourou o orçamento", example = "false")
     private Boolean overBudget;
+
+    @Schema(description = "Data da última atualização", example = "2024-03-15")
     private LocalDate lastUpdated;
-
-    // Construtores
-    public CostReportDto() {}
-
-    public CostReportDto(Long projectId, String projectName, String client, BigDecimal totalBudget,
-                        BigDecimal materialCosts, BigDecimal serviceCosts, BigDecimal totalCosts,
-                        BigDecimal remainingBudget, Double budgetUtilizationPercent, Boolean overBudget,
-                        LocalDate lastUpdated) {
-        this.projectId = projectId;
-        this.projectName = projectName;
-        this.client = client;
-        this.totalBudget = totalBudget;
-        this.materialCosts = materialCosts;
-        this.serviceCosts = serviceCosts;
-        this.totalCosts = totalCosts;
-        this.remainingBudget = remainingBudget;
-        this.budgetUtilizationPercent = budgetUtilizationPercent;
-        this.overBudget = overBudget;
-        this.lastUpdated = lastUpdated;
-    }
-
-    // Getters e Setters
-    public Long getProjectId() {
-        return projectId;
-    }
-
-    public void setProjectId(Long projectId) {
-        this.projectId = projectId;
-    }
-
-    public String getProjectName() {
-        return projectName;
-    }
-
-    public void setProjectName(String projectName) {
-        this.projectName = projectName;
-    }
-
-    public String getClient() {
-        return client;
-    }
-
-    public void setClient(String client) {
-        this.client = client;
-    }
-
-    public BigDecimal getTotalBudget() {
-        return totalBudget;
-    }
-
-    public void setTotalBudget(BigDecimal totalBudget) {
-        this.totalBudget = totalBudget;
-    }
-
-    public BigDecimal getMaterialCosts() {
-        return materialCosts;
-    }
-
-    public void setMaterialCosts(BigDecimal materialCosts) {
-        this.materialCosts = materialCosts;
-    }
-
-    public BigDecimal getServiceCosts() {
-        return serviceCosts;
-    }
-
-    public void setServiceCosts(BigDecimal serviceCosts) {
-        this.serviceCosts = serviceCosts;
-    }
-
-    public BigDecimal getTotalCosts() {
-        return totalCosts;
-    }
-
-    public void setTotalCosts(BigDecimal totalCosts) {
-        this.totalCosts = totalCosts;
-    }
-
-    public BigDecimal getRemainingBudget() {
-        return remainingBudget;
-    }
-
-    public void setRemainingBudget(BigDecimal remainingBudget) {
-        this.remainingBudget = remainingBudget;
-    }
-
-    public Double getBudgetUtilizationPercent() {
-        return budgetUtilizationPercent;
-    }
-
-    public void setBudgetUtilizationPercent(Double budgetUtilizationPercent) {
-        this.budgetUtilizationPercent = budgetUtilizationPercent;
-    }
-
-    public Boolean getOverBudget() {
-        return overBudget;
-    }
-
-    public void setOverBudget(Boolean overBudget) {
-        this.overBudget = overBudget;
-    }
-
-    public LocalDate getLastUpdated() {
-        return lastUpdated;
-    }
-
-    public void setLastUpdated(LocalDate lastUpdated) {
-        this.lastUpdated = lastUpdated;
-    }
 } 

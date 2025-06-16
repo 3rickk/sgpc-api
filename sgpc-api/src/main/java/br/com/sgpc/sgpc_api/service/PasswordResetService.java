@@ -14,6 +14,30 @@ import br.com.sgpc.sgpc_api.entity.User;
 import br.com.sgpc.sgpc_api.repository.PasswordResetTokenRepository;
 import br.com.sgpc.sgpc_api.repository.UserRepository;
 
+/**
+ * Serviço responsável pelo processo de redefinição de senha.
+ * 
+ * Este serviço implementa um fluxo seguro de recuperação de senha
+ * através de tokens temporários enviados por email. Inclui validação
+ * de tokens, controle de expiração e limpeza automática.
+ * 
+ * Funcionalidades principais:
+ * - Geração de tokens únicos de recuperação
+ * - Validação e expiração de tokens (24 horas)
+ * - Redefinição segura de senhas
+ * - Limpeza automática de tokens expirados
+ * - Prevenção de reutilização de tokens
+ * 
+ * Características de segurança:
+ * - Tokens únicos gerados com UUID
+ * - Expiração automática em 24 horas
+ * - Invalidação após uso único
+ * - Remoção de tokens antigos do usuário
+ * 
+ * @author Sistema SGPC
+ * @version 1.0
+ * @since 2024
+ */
 @Service
 @Transactional
 public class PasswordResetService {
@@ -24,16 +48,25 @@ public class PasswordResetService {
     @Autowired
     private PasswordResetTokenRepository passwordResetTokenRepository;
     
-
-    
+    /**
+     * Gera um token de redefinição de senha para o usuário.
+     * 
+     * Este método busca o usuário pelo email, remove tokens anteriores
+     * para evitar acúmulo, gera um novo token único com UUID e
+     * configura expiração para 24 horas.
+     * 
+     * @param request dados da solicitação contendo email do usuário
+     * @return String token gerado para redefinição
+     * @throws RuntimeException se o usuário não for encontrado
+     */
     public String generatePasswordResetToken(PasswordResetRequestDto request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado com este email"));
         
-        // Remove tokens antigos do usuário
+        // Remove tokens antigos do usuário para evitar acúmulo
         passwordResetTokenRepository.deleteByUser_Id(user.getId());
         
-        // Gera novo token
+        // Gera novo token único
         String token = UUID.randomUUID().toString();
         LocalDateTime expiresAt = LocalDateTime.now().plusHours(24); // Expira em 24 horas
         
@@ -44,13 +77,23 @@ public class PasswordResetService {
         
         passwordResetTokenRepository.save(resetToken);
         
-        // Em produção, enviar email com o token em vez de retorná-lo
+        // NOTA: Em produção, deve ser implementado envio por email
         // emailService.sendPasswordResetEmail(user.getEmail(), token);
         
         // Por simplicidade no desenvolvimento, retornamos o token
         return token;
     }
     
+    /**
+     * Redefine a senha do usuário usando token válido.
+     * 
+     * Valida o token fornecido, verifica se não expirou,
+     * atualiza a senha do usuário e remove o token usado
+     * para evitar reutilização.
+     * 
+     * @param resetDto dados contendo token e nova senha
+     * @throws RuntimeException se token inválido ou expirado
+     */
     public void resetPassword(PasswordResetDto resetDto) {
         PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(resetDto.getToken())
                 .orElseThrow(() -> new RuntimeException("Token inválido"));
@@ -63,15 +106,31 @@ public class PasswordResetService {
         user.setPasswordHash(hashPassword(resetDto.getNewPassword()));
         userRepository.save(user);
         
-        // Remove o token usado
+        // Remove o token usado para evitar reutilização
         passwordResetTokenRepository.delete(resetToken);
     }
     
+    /**
+     * Gera hash da senha fornecida.
+     * 
+     * NOTA: Esta é uma implementação simplificada para desenvolvimento.
+     * Em produção deve ser usado BCrypt ou outro algoritmo robusto.
+     * 
+     * @param password senha em texto plano
+     * @return String hash da senha
+     */
     private String hashPassword(String password) {
-        // Simplificado - usar BCrypt em produção
+        // FIXME: Implementar BCrypt em produção
         return "hashed_" + password;
     }
     
+    /**
+     * Remove tokens expirados do banco de dados.
+     * 
+     * Método utilitário para limpeza automática de tokens
+     * expirados. Deve ser executado periodicamente via
+     * scheduler para manter a base limpa.
+     */
     public void cleanExpiredTokens() {
         passwordResetTokenRepository.deleteByExpiresAtBefore(LocalDateTime.now());
     }

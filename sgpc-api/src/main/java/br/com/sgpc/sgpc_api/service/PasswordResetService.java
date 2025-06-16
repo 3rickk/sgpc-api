@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,6 +48,8 @@ public class PasswordResetService {
     
     @Autowired
     private PasswordResetTokenRepository passwordResetTokenRepository;
+    
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     
     /**
      * Gera um token de redefinição de senha para o usuário.
@@ -111,17 +114,15 @@ public class PasswordResetService {
     }
     
     /**
-     * Gera hash da senha fornecida.
+     * Gera hash da senha fornecida usando BCrypt.
      * 
-     * NOTA: Esta é uma implementação simplificada para desenvolvimento.
-     * Em produção deve ser usado BCrypt ou outro algoritmo robusto.
+     * Utiliza BCryptPasswordEncoder para criar hash seguro da senha.
      * 
      * @param password senha em texto plano
-     * @return String hash da senha
+     * @return String hash da senha usando BCrypt
      */
     private String hashPassword(String password) {
-        // FIXME: Implementar BCrypt em produção
-        return "hashed_" + password;
+        return passwordEncoder.encode(password);
     }
     
     /**

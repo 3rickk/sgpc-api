@@ -50,6 +50,6 @@ public class UserDto {
     @Schema(description = "Data da última atualização", example = "2024-01-20T14:45:00")
     private LocalDateTime updatedAt;
     
-    @Schema(description = "Funções do usuário no sistema", example = "[\"USER\", \"PROJECT_MANAGER\"]")
+    @Schema(description = "Funções do usuário no sistema", example = "[\"USER\", \"MANAGER\"]")
     private Set<String> roles;
 } 

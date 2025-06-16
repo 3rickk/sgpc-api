@@ -7,6 +7,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,6 +45,8 @@ public class UserService {
     
     @Autowired
     private RoleRepository roleRepository;
+    
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     
     /**
      * Cria um novo usuário no sistema.
@@ -89,17 +92,15 @@ public class UserService {
     }
     
     /**
-     * Gera hash da senha do usuário.
+     * Gera hash da senha do usuário usando BCrypt.
      * 
-     * NOTA: Implementação simplificada para demonstração.
-     * Em produção deve usar BCrypt ou similar.
+     * Utiliza BCryptPasswordEncoder para criar hash seguro da senha.
      * 
      * @param password senha em texto plano
-     * @return String hash da senha
+     * @return String hash da senha usando BCrypt
      */
     private String hashPassword(String password) {
-        // Simplificado - em produção usaria BCrypt
-        return "hashed_" + password;
+        return passwordEncoder.encode(password);
     }
     
     /**

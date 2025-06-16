@@ -80,6 +80,6 @@ public class UserRegistrationDto {
      * Define as permissões e níveis de acesso que o usuário
      * terá no sistema após o registro.
      */
-    @Schema(description = "Roles/permissões do usuário", example = "[\"USER\", \"PROJECT_MANAGER\"]")
+    @Schema(description = "Roles/permissões do usuário", example = "[\"USER\", \"MANAGER\"]")
     private Set<String> roleNames;
 } 

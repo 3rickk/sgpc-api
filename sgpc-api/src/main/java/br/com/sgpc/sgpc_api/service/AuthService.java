@@ -4,6 +4,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import br.com.sgpc.sgpc_api.dto.JwtResponseDto;
@@ -41,6 +42,8 @@ public class AuthService {
     
     @Autowired
     private JwtUtil jwtUtil;
+    
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     
     /**
      * Autentica um usuário e gera token JWT.
@@ -82,16 +85,15 @@ public class AuthService {
     /**
      * Valida se a senha fornecida corresponde ao hash armazenado.
      * 
-     * NOTA: Implementação simplificada para desenvolvimento.
-     * Em produção, deve utilizar BCryptPasswordEncoder para hash seguro.
+     * Utiliza BCryptPasswordEncoder para verificar se a senha em texto plano
+     * corresponde ao hash BCrypt armazenado no banco de dados.
      * 
      * @param rawPassword senha em texto plano
      * @param hashedPassword hash da senha armazenado no banco
      * @return true se as senhas coincidirem, false caso contrário
      */
     private boolean isPasswordValid(String rawPassword, String hashedPassword) {
-        // Simplificado - em produção usar BCrypt
-        return ("hashed_" + rawPassword).equals(hashedPassword);
+        return passwordEncoder.matches(rawPassword, hashedPassword);
     }
     
     /**

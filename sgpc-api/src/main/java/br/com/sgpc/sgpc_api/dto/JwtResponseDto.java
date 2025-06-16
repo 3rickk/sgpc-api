@@ -64,7 +64,7 @@ public class JwtResponseDto {
      * 
      * Define as permissões e níveis de acesso do usuário no sistema.
      */
-    @Schema(description = "Roles/permissões do usuário", example = "[\"USER\", \"PROJECT_MANAGER\"]")
+    @Schema(description = "Roles/permissões do usuário", example = "[\"USER\", \"MANAGER\"]")
     private Set<String> roles;
     
     /**

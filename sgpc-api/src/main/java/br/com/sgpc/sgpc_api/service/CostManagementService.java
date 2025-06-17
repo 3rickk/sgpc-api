@@ -18,6 +18,11 @@ import br.com.sgpc.sgpc_api.dto.TaskServiceDto;
 import br.com.sgpc.sgpc_api.dto.TaskViewDto;
 import br.com.sgpc.sgpc_api.entity.Task;
 import br.com.sgpc.sgpc_api.entity.TaskService;
+import br.com.sgpc.sgpc_api.exception.ServiceAlreadyAssignedException;
+import br.com.sgpc.sgpc_api.exception.ServiceAlreadyExistsException;
+import br.com.sgpc.sgpc_api.exception.ServiceNotAssignedToTaskException;
+import br.com.sgpc.sgpc_api.exception.ServiceNotFoundException;
+import br.com.sgpc.sgpc_api.exception.TaskNotFoundException;
 import br.com.sgpc.sgpc_api.repository.ServiceRepository;
 import br.com.sgpc.sgpc_api.repository.TaskRepository;
 import br.com.sgpc.sgpc_api.repository.TaskServiceRepository;
@@ -66,11 +71,11 @@ public class CostManagementService {
      * 
      * @param serviceCreateDto dados do serviço a ser criado
      * @return ServiceDto dados do serviço criado
-     * @throws RuntimeException se já existir um serviço com o mesmo nome
+     * @throws ServiceAlreadyExistsException se já existir um serviço com o mesmo nome
      */
     public ServiceDto createService(ServiceCreateDto serviceCreateDto) {
         if (serviceRepository.existsByName(serviceCreateDto.getName())) {
-            throw new RuntimeException("Já existe um serviço com este nome!");
+            throw new ServiceAlreadyExistsException("Já existe um serviço cadastrado com este nome");
         }
 
         br.com.sgpc.sgpc_api.entity.Service service = new br.com.sgpc.sgpc_api.entity.Service();
@@ -121,17 +126,19 @@ public class CostManagementService {
      * @param taskId ID da tarefa
      * @param serviceCreateDto dados do serviço para vinculação
      * @return TaskServiceDto dados do serviço vinculado à tarefa
-     * @throws RuntimeException se a tarefa ou serviço não for encontrado, ou se o serviço já estiver vinculado
+     * @throws TaskNotFoundException se a tarefa não for encontrada
+     * @throws ServiceNotFoundException se o serviço não for encontrado
+     * @throws ServiceAlreadyAssignedException se o serviço já estiver vinculado
      */
     public TaskServiceDto addServiceToTask(Long taskId, TaskServiceCreateDto serviceCreateDto) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Tarefa não encontrada"));
+                .orElseThrow(() -> new TaskNotFoundException("Tarefa não encontrada"));
 
         br.com.sgpc.sgpc_api.entity.Service service = serviceRepository.findById(serviceCreateDto.getServiceId())
-                .orElseThrow(() -> new RuntimeException("Serviço não encontrado"));
+                .orElseThrow(() -> new ServiceNotFoundException("Serviço não encontrado"));
 
         if (taskServiceRepository.existsByTaskIdAndServiceId(taskId, serviceCreateDto.getServiceId())) {
-            throw new RuntimeException("Serviço já foi adicionado a esta tarefa");
+            throw new ServiceAlreadyAssignedException("Este serviço já foi adicionado a esta tarefa");
         }
 
         TaskService taskService = new TaskService();
@@ -157,11 +164,11 @@ public class CostManagementService {
      * 
      * @param taskId ID da tarefa
      * @param serviceId ID do serviço
-     * @throws RuntimeException se a vinculação não existir
+     * @throws ServiceNotAssignedToTaskException se a vinculação não existir
      */
     public void removeServiceFromTask(Long taskId, Long serviceId) {
         if (!taskServiceRepository.existsByTaskIdAndServiceId(taskId, serviceId)) {
-            throw new RuntimeException("Serviço não encontrado nesta tarefa");
+            throw new ServiceNotAssignedToTaskException("Este serviço não está vinculado a esta tarefa");
         }
 
         taskServiceRepository.deleteByTaskIdAndServiceId(taskId, serviceId);
@@ -191,11 +198,11 @@ public class CostManagementService {
      * @param taskId ID da tarefa
      * @param progressUpdateDto dados de atualização do progresso
      * @return TaskViewDto tarefa atualizada
-     * @throws RuntimeException se a tarefa não for encontrada
+     * @throws TaskNotFoundException se a tarefa não for encontrada
      */
     public TaskViewDto updateTaskProgress(Long taskId, TaskProgressUpdateDto progressUpdateDto) {
         Task task = taskRepository.findByIdWithDetails(taskId)
-                .orElseThrow(() -> new RuntimeException("Tarefa não encontrada"));
+                .orElseThrow(() -> new TaskNotFoundException("Tarefa não encontrada"));
 
         task.updateProgress(progressUpdateDto.getProgressPercentage());
 
@@ -227,11 +234,11 @@ public class CostManagementService {
      * os custos realizados do projeto.
      * 
      * @param taskId ID da tarefa
-     * @throws RuntimeException se a tarefa não for encontrada
+     * @throws TaskNotFoundException se a tarefa não for encontrada
      */
     public void recalculateTaskCosts(Long taskId) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Tarefa não encontrada"));
+                .orElseThrow(() -> new TaskNotFoundException("Tarefa não encontrada"));
 
         BigDecimal laborCost = taskServiceRepository.calculateLaborCostByTaskId(taskId);
         BigDecimal materialCost = taskServiceRepository.calculateMaterialCostByTaskId(taskId);
@@ -252,12 +259,12 @@ public class CostManagementService {
      * 
      * @param taskId ID da tarefa
      * @return TaskCostReportDto relatório de custos da tarefa
-     * @throws RuntimeException se a tarefa não for encontrada
+     * @throws TaskNotFoundException se a tarefa não for encontrada
      */
     @Transactional(readOnly = true)
     public TaskCostReportDto getTaskCostReport(Long taskId) {
         Task task = taskRepository.findByIdWithDetails(taskId)
-                .orElseThrow(() -> new RuntimeException("Tarefa não encontrada"));
+                .orElseThrow(() -> new TaskNotFoundException("Tarefa não encontrada"));
 
         List<TaskServiceDto> services = getTaskServices(taskId);
 

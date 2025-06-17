@@ -16,6 +16,9 @@ import br.com.sgpc.sgpc_api.entity.Project;
 import br.com.sgpc.sgpc_api.entity.Task;
 import br.com.sgpc.sgpc_api.entity.User;
 import br.com.sgpc.sgpc_api.enums.TaskStatus;
+import br.com.sgpc.sgpc_api.exception.ProjectNotFoundException;
+import br.com.sgpc.sgpc_api.exception.TaskNotFoundException;
+import br.com.sgpc.sgpc_api.exception.UserNotFoundException;
 import br.com.sgpc.sgpc_api.repository.ProjectRepository;
 import br.com.sgpc.sgpc_api.repository.TaskRepository;
 import br.com.sgpc.sgpc_api.repository.UserRepository;
@@ -60,7 +63,7 @@ public class TaskService {
     public TaskViewDto createTask(Long projectId, TaskCreateDto taskCreateDto, Long createdByUserId) {
         // Verificar se o projeto existe
         Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
+                .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + projectId + " não foi encontrado"));
 
         // Verificar se já existe uma tarefa com o mesmo título no projeto
         if (taskRepository.existsByProjectIdAndTitle(projectId, taskCreateDto.getTitle())) {
@@ -69,7 +72,7 @@ public class TaskService {
 
         // Verificar se o usuário criador existe
         User createdByUser = userRepository.findById(createdByUserId)
-                .orElseThrow(() -> new RuntimeException("Usuário criador não encontrado"));
+                .orElseThrow(() -> new UserNotFoundException("Usuário criador com ID " + createdByUserId + " não foi encontrado"));
 
         Task task = new Task();
         task.setTitle(taskCreateDto.getTitle());
@@ -90,7 +93,7 @@ public class TaskService {
         // Atribuir usuário responsável se fornecido
         if (taskCreateDto.getAssignedUserId() != null) {
             User assignedUser = userRepository.findById(taskCreateDto.getAssignedUserId())
-                    .orElseThrow(() -> new RuntimeException("Usuário responsável não encontrado"));
+                    .orElseThrow(() -> new UserNotFoundException("Usuário responsável com ID " + taskCreateDto.getAssignedUserId() + " não foi encontrado"));
             task.setAssignedUser(assignedUser);
         }
 
@@ -179,7 +182,7 @@ public class TaskService {
      */
     public TaskViewDto updateTask(Long taskId, TaskCreateDto taskUpdateDto) {
         Task task = taskRepository.findByIdWithDetails(taskId)
-                .orElseThrow(() -> new RuntimeException("Tarefa não encontrada"));
+                .orElseThrow(() -> new TaskNotFoundException("Tarefa com ID " + taskId + " não foi encontrada"));
 
         // Verificar se o título já existe no projeto (apenas se for diferente do atual)
         if (taskUpdateDto.getTitle() != null && 
@@ -229,7 +232,7 @@ public class TaskService {
         // Atualizar usuário responsável
         if (taskUpdateDto.getAssignedUserId() != null) {
             User assignedUser = userRepository.findById(taskUpdateDto.getAssignedUserId())
-                    .orElseThrow(() -> new RuntimeException("Usuário responsável não encontrado"));
+                    .orElseThrow(() -> new UserNotFoundException("Usuário responsável com ID " + taskUpdateDto.getAssignedUserId() + " não foi encontrado"));
             task.setAssignedUser(assignedUser);
         }
 
@@ -251,7 +254,7 @@ public class TaskService {
      */
     public TaskViewDto updateTaskStatus(Long taskId, TaskUpdateStatusDto statusUpdateDto) {
         Task task = taskRepository.findByIdWithDetails(taskId)
-                .orElseThrow(() -> new RuntimeException("Tarefa não encontrada"));
+                .orElseThrow(() -> new TaskNotFoundException("Tarefa com ID " + taskId + " não foi encontrada"));
 
         TaskStatus oldStatus = task.getStatus();
         task.setStatus(statusUpdateDto.getStatus());
@@ -286,7 +289,7 @@ public class TaskService {
      */
     public void deleteTask(Long taskId) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Tarefa não encontrada"));
+                .orElseThrow(() -> new TaskNotFoundException("Tarefa com ID " + taskId + " não foi encontrada"));
         
         taskRepository.delete(task);
     }
@@ -304,6 +307,35 @@ public class TaskService {
             return taskRepository.countByProjectId(projectId);
         }
         return taskRepository.countByProjectIdAndStatus(projectId, status);
+    }
+
+    /**
+     * Obtém estatísticas das tarefas de um projeto.
+     * 
+     * @param projectId ID do projeto
+     * @return TaskStatisticsDto estatísticas das tarefas
+     */
+    @Transactional(readOnly = true)
+    public TaskStatisticsDto getProjectTaskStatistics(Long projectId) {
+        TaskStatisticsDto statistics = new TaskStatisticsDto();
+        
+        statistics.setTotalTasks(countTasksByProjectAndStatus(projectId, null));
+        statistics.setTasksAFazer(countTasksByProjectAndStatus(projectId, TaskStatus.A_FAZER));
+        statistics.setTasksEmAndamento(countTasksByProjectAndStatus(projectId, TaskStatus.EM_ANDAMENTO));
+        statistics.setTasksConcluidas(countTasksByProjectAndStatus(projectId, TaskStatus.CONCLUIDA));
+        statistics.setTasksBloqueadas(countTasksByProjectAndStatus(projectId, TaskStatus.BLOQUEADA));
+        statistics.setTasksCanceladas(countTasksByProjectAndStatus(projectId, TaskStatus.CANCELADA));
+
+        // Calcular percentual de conclusão
+        if (statistics.getTotalTasks() > 0) {
+            statistics.setCompletionPercentage(
+                (statistics.getTasksConcluidas() * 100.0) / statistics.getTotalTasks()
+            );
+        } else {
+            statistics.setCompletionPercentage(0.0);
+        }
+
+        return statistics;
     }
 
     /**
@@ -361,5 +393,34 @@ public class TaskService {
                       !task.isCompleted());
 
         return dto;
+    }
+
+    /**
+     * DTO interno para estatísticas de tarefas.
+     */
+    public static class TaskStatisticsDto {
+        private Long totalTasks;
+        private Long tasksAFazer;
+        private Long tasksEmAndamento;
+        private Long tasksConcluidas;
+        private Long tasksBloqueadas;
+        private Long tasksCanceladas;
+        private Double completionPercentage;
+
+        // Getters e Setters
+        public Long getTotalTasks() { return totalTasks; }
+        public void setTotalTasks(Long totalTasks) { this.totalTasks = totalTasks; }
+        public Long getTasksAFazer() { return tasksAFazer; }
+        public void setTasksAFazer(Long tasksAFazer) { this.tasksAFazer = tasksAFazer; }
+        public Long getTasksEmAndamento() { return tasksEmAndamento; }
+        public void setTasksEmAndamento(Long tasksEmAndamento) { this.tasksEmAndamento = tasksEmAndamento; }
+        public Long getTasksConcluidas() { return tasksConcluidas; }
+        public void setTasksConcluidas(Long tasksConcluidas) { this.tasksConcluidas = tasksConcluidas; }
+        public Long getTasksBloqueadas() { return tasksBloqueadas; }
+        public void setTasksBloqueadas(Long tasksBloqueadas) { this.tasksBloqueadas = tasksBloqueadas; }
+        public Long getTasksCanceladas() { return tasksCanceladas; }
+        public void setTasksCanceladas(Long tasksCanceladas) { this.tasksCanceladas = tasksCanceladas; }
+        public Double getCompletionPercentage() { return completionPercentage; }
+        public void setCompletionPercentage(Double completionPercentage) { this.completionPercentage = completionPercentage; }
     }
 } 

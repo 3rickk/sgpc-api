@@ -13,6 +13,9 @@ import br.com.sgpc.sgpc_api.dto.UserDto;
 import br.com.sgpc.sgpc_api.dto.UserRegistrationDto;
 import br.com.sgpc.sgpc_api.entity.Role;
 import br.com.sgpc.sgpc_api.entity.User;
+import br.com.sgpc.sgpc_api.exception.InvalidCredentialsException;
+import br.com.sgpc.sgpc_api.exception.UserInactiveException;
+import br.com.sgpc.sgpc_api.exception.UserNotFoundException;
 import br.com.sgpc.sgpc_api.repository.UserRepository;
 import br.com.sgpc.sgpc_api.security.JwtUtil;
 import br.com.sgpc.sgpc_api.security.UserDetailsImpl;
@@ -57,19 +60,21 @@ public class AuthService {
      * 
      * @param loginRequest dados de login (email e senha)
      * @return JwtResponseDto com token e informações do usuário
-     * @throws RuntimeException se usuário não encontrado, senha inválida ou usuário inativo
+     * @throws UserNotFoundException se usuário não encontrado
+     * @throws InvalidCredentialsException se senha inválida
+     * @throws UserInactiveException se usuário inativo
      */
     public JwtResponseDto authenticateUser(LoginRequestDto loginRequest) {
         User user = userRepository.findByEmailWithRoles(loginRequest.getEmail())
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+                .orElseThrow(() -> new UserNotFoundException("Email não encontrado no sistema"));
         
-        // Verificar senha (simplificado)
+        // Verificar senha
         if (!isPasswordValid(loginRequest.getPassword(), user.getPasswordHash())) {
-            throw new RuntimeException("Senha inválida");
+            throw new InvalidCredentialsException("Senha incorreta");
         }
         
         if (!user.getIsActive()) {
-            throw new RuntimeException("Usuário inativo");
+            throw new UserInactiveException("Conta desativada. Entre em contato com o administrador");
         }
         
         UserDetailsImpl userDetails = UserDetailsImpl.build(user);

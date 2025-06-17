@@ -8,9 +8,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.com.sgpc.sgpc_api.dto.DashboardDto;
+import br.com.sgpc.sgpc_api.dto.ErrorResponseDto;
 import br.com.sgpc.sgpc_api.service.DashboardService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -53,17 +55,34 @@ public class DashboardController {
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Dados do dashboard obtidos com sucesso",
                 content = @Content(schema = @Schema(implementation = DashboardDto.class))),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado"),
-        @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 401, \"erro\": \"Token expirado\", \"mensagem\": \"Sua sessão expirou. Faça login novamente\", \"path\": \"/api/dashboard\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                )),
+        @ApiResponse(responseCode = "403", description = "Acesso negado",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 403, \"erro\": \"Acesso negado\", \"mensagem\": \"Você não tem permissão para acessar os dados do dashboard\", \"path\": \"/api/dashboard\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                )),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 500, \"erro\": \"Erro no carregamento do dashboard\", \"mensagem\": \"Erro ao carregar dados do dashboard: Falha na conexão com banco de dados\", \"path\": \"/api/dashboard\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                ))
     })
     @GetMapping
     public ResponseEntity<DashboardDto> getDashboardData() {
-        try {
-            DashboardDto dashboardData = dashboardService.getDashboardData();
-            return ResponseEntity.ok(dashboardData);
-        } catch (Exception e) {
-            throw new RuntimeException("Erro ao obter dados do dashboard: " + e.getMessage());
-        }
+        DashboardDto dashboardData = dashboardService.getDashboardData();
+        return ResponseEntity.ok(dashboardData);
     }
 } 

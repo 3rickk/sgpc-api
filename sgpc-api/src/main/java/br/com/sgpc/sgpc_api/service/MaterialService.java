@@ -14,6 +14,10 @@ import br.com.sgpc.sgpc_api.dto.MaterialDto;
 import br.com.sgpc.sgpc_api.dto.MaterialUpdateDto;
 import br.com.sgpc.sgpc_api.dto.StockMovementDto;
 import br.com.sgpc.sgpc_api.entity.Material;
+import br.com.sgpc.sgpc_api.exception.InsufficientStockException;
+import br.com.sgpc.sgpc_api.exception.InvalidMovementTypeException;
+import br.com.sgpc.sgpc_api.exception.MaterialAlreadyExistsException;
+import br.com.sgpc.sgpc_api.exception.MaterialNotFoundException;
 import br.com.sgpc.sgpc_api.repository.MaterialRepository;
 
 /**
@@ -50,11 +54,11 @@ public class MaterialService {
      * 
      * @param materialCreateDto dados do material a ser criado
      * @return MaterialDto dados do material criado
-     * @throws RuntimeException se já existir material com o mesmo nome
+     * @throws MaterialAlreadyExistsException se já existir material com o mesmo nome
      */
     public MaterialDto createMaterial(MaterialCreateDto materialCreateDto) {
         if (materialRepository.existsByName(materialCreateDto.getName())) {
-            throw new RuntimeException("Já existe um material com este nome!");
+            throw new MaterialAlreadyExistsException("Já existe um material cadastrado com o nome: " + materialCreateDto.getName());
         }
 
         Material material = new Material();
@@ -159,17 +163,18 @@ public class MaterialService {
      * @param id ID do material a ser atualizado
      * @param materialUpdateDto dados para atualização
      * @return MaterialDto material atualizado
-     * @throws RuntimeException se material não for encontrado ou nome já existir
+     * @throws MaterialNotFoundException se material não for encontrado
+     * @throws MaterialAlreadyExistsException se nome já existir
      */
     public MaterialDto updateMaterial(Long id, MaterialUpdateDto materialUpdateDto) {
         Material material = materialRepository.findByIdAndIsActiveTrue(id)
-                .orElseThrow(() -> new RuntimeException("Material não encontrado"));
+                .orElseThrow(() -> new MaterialNotFoundException("Material com ID " + id + " não foi encontrado"));
 
         // Validar se o nome já existe (apenas se for diferente do atual)
         if (materialUpdateDto.getName() != null && 
             !material.getName().equals(materialUpdateDto.getName()) &&
             materialRepository.existsByName(materialUpdateDto.getName())) {
-            throw new RuntimeException("Já existe um material com este nome!");
+            throw new MaterialAlreadyExistsException("Já existe um material cadastrado com o nome: " + materialUpdateDto.getName());
         }
 
         // Atualizar campos apenas se fornecidos
@@ -206,11 +211,11 @@ public class MaterialService {
      * preservando o histórico de uso em projetos e tarefas.
      * 
      * @param id ID do material a ser removido
-     * @throws RuntimeException se o material não for encontrado
+     * @throws MaterialNotFoundException se o material não for encontrado
      */
     public void deleteMaterial(Long id) {
         Material material = materialRepository.findByIdAndIsActiveTrue(id)
-                .orElseThrow(() -> new RuntimeException("Material não encontrado"));
+                .orElseThrow(() -> new MaterialNotFoundException("Material com ID " + id + " não foi encontrado"));
         
         // Soft delete - apenas marca como inativo
         material.setIsActive(false);
@@ -226,24 +231,33 @@ public class MaterialService {
      * @param id ID do material
      * @param stockMovementDto dados da movimentação (tipo e quantidade)
      * @return MaterialDto material com estoque atualizado
-     * @throws RuntimeException se material não for encontrado, tipo inválido ou estoque insuficiente
+     * @throws MaterialNotFoundException se material não for encontrado
+     * @throws InvalidMovementTypeException se tipo inválido
+     * @throws InsufficientStockException se estoque insuficiente
      */
     public MaterialDto updateStock(Long id, StockMovementDto stockMovementDto) {
         Material material = materialRepository.findByIdAndIsActiveTrue(id)
-                .orElseThrow(() -> new RuntimeException("Material não encontrado"));
+                .orElseThrow(() -> new MaterialNotFoundException("Material com ID " + id + " não foi encontrado"));
 
         String movementType = stockMovementDto.getMovementType().toUpperCase();
         BigDecimal quantity = stockMovementDto.getQuantity();
 
-        switch (movementType) {
-            case "ENTRADA":
-                material.addStock(quantity);
-                break;
-            case "SAIDA":
-                material.removeStock(quantity);
-                break;
-            default:
-                throw new RuntimeException("Tipo de movimentação inválido. Use 'ENTRADA' ou 'SAIDA'");
+        try {
+            switch (movementType) {
+                case "ENTRADA":
+                    material.addStock(quantity);
+                    break;
+                case "SAIDA":
+                    material.removeStock(quantity);
+                    break;
+                default:
+                    throw new InvalidMovementTypeException("Tipo de movimentação '" + movementType + "' é inválido. Use 'ENTRADA' ou 'SAIDA'");
+            }
+        } catch (RuntimeException e) {
+            if (e.getMessage().contains("Estoque insuficiente")) {
+                throw new InsufficientStockException(e.getMessage());
+            }
+            throw e;
         }
 
         Material savedMaterial = materialRepository.save(material);
@@ -259,11 +273,11 @@ public class MaterialService {
      * @param id ID do material
      * @param quantity quantidade a ser adicionada
      * @return MaterialDto material com estoque atualizado
-     * @throws RuntimeException se material não for encontrado
+     * @throws MaterialNotFoundException se material não for encontrado
      */
     public MaterialDto addStock(Long id, BigDecimal quantity) {
         Material material = materialRepository.findByIdAndIsActiveTrue(id)
-                .orElseThrow(() -> new RuntimeException("Material não encontrado"));
+                .orElseThrow(() -> new MaterialNotFoundException("Material com ID " + id + " não foi encontrado"));
 
         material.addStock(quantity);
         Material savedMaterial = materialRepository.save(material);
@@ -279,13 +293,22 @@ public class MaterialService {
      * @param id ID do material
      * @param quantity quantidade a ser removida
      * @return MaterialDto material com estoque atualizado
-     * @throws RuntimeException se material não for encontrado ou estoque insuficiente
+     * @throws MaterialNotFoundException se material não for encontrado
+     * @throws InsufficientStockException se estoque insuficiente
      */
     public MaterialDto removeStock(Long id, BigDecimal quantity) {
         Material material = materialRepository.findByIdAndIsActiveTrue(id)
-                .orElseThrow(() -> new RuntimeException("Material não encontrado"));
+                .orElseThrow(() -> new MaterialNotFoundException("Material com ID " + id + " não foi encontrado"));
 
-        material.removeStock(quantity);
+        try {
+            material.removeStock(quantity);
+        } catch (RuntimeException e) {
+            if (e.getMessage().contains("Estoque insuficiente")) {
+                throw new InsufficientStockException(e.getMessage());
+            }
+            throw e;
+        }
+        
         Material savedMaterial = materialRepository.save(material);
         return convertToDto(savedMaterial);
     }

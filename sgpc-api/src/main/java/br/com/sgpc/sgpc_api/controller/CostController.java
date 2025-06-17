@@ -1,6 +1,7 @@
 package br.com.sgpc.sgpc_api.controller;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.com.sgpc.sgpc_api.dto.ErrorResponseDto;
 import br.com.sgpc.sgpc_api.dto.ProjectBudgetDto;
 import br.com.sgpc.sgpc_api.dto.ServiceCreateDto;
 import br.com.sgpc.sgpc_api.dto.ServiceDto;
@@ -27,6 +29,7 @@ import br.com.sgpc.sgpc_api.service.ProjectService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -68,11 +71,36 @@ public class CostController {
         description = "Cria um novo serviço com custos unitários de mão de obra, materiais e equipamentos"
     )
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Serviço criado com sucesso",
-                content = @Content(schema = @Schema(implementation = ServiceDto.class))),
-        @ApiResponse(responseCode = "400", description = "Dados inválidos ou serviço já existe"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado")
+        @ApiResponse(
+            responseCode = "200", 
+            description = "Serviço criado com sucesso",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ServiceDto.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "400", 
+            description = "Dados inválidos",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 400, \"erro\": \"Dados inválidos\", \"mensagem\": \"name: não deve estar vazio\", \"path\": \"/api/cost/services\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        ),
+        @ApiResponse(
+            responseCode = "409", 
+            description = "Serviço já existe",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 409, \"erro\": \"Serviço já existe\", \"mensagem\": \"Já existe um serviço cadastrado com este nome\", \"path\": \"/api/cost/services\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        )
     })
     @PostMapping("/services")
     public ResponseEntity<ServiceDto> createService(
@@ -91,9 +119,7 @@ public class CostController {
         description = "Retorna lista de todos os serviços ativos ordenados por nome"
     )
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Lista de serviços retornada com sucesso"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado")
+        @ApiResponse(responseCode = "200", description = "Lista de serviços retornada com sucesso")
     })
     @GetMapping("/services")
     public ResponseEntity<List<ServiceDto>> getAllActiveServices() {
@@ -113,8 +139,17 @@ public class CostController {
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Busca realizada com sucesso"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado")
+        @ApiResponse(
+            responseCode = "400", 
+            description = "Parâmetro de busca inválido",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 400, \"erro\": \"Dados inválidos\", \"mensagem\": \"Parâmetro 'name' é obrigatório\", \"path\": \"/api/cost/services/search\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        )
     })
     @GetMapping("/services/search")
     public ResponseEntity<List<ServiceDto>> searchServices(
@@ -135,12 +170,47 @@ public class CostController {
         description = "Vincula um serviço existente a uma tarefa específica com quantidade e custos personalizados"
     )
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Serviço adicionado à tarefa com sucesso",
-                content = @Content(schema = @Schema(implementation = TaskServiceDto.class))),
-        @ApiResponse(responseCode = "400", description = "Tarefa não encontrada ou dados inválidos"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado"),
-        @ApiResponse(responseCode = "404", description = "Tarefa não encontrada")
+        @ApiResponse(
+            responseCode = "200", 
+            description = "Serviço adicionado à tarefa com sucesso",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = TaskServiceDto.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "400", 
+            description = "Dados inválidos",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 400, \"erro\": \"Dados inválidos\", \"mensagem\": \"quantity: deve ser maior que zero\", \"path\": \"/api/cost/tasks/1/services\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        ),
+        @ApiResponse(
+            responseCode = "404", 
+            description = "Tarefa ou serviço não encontrado",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 404, \"erro\": \"Tarefa não encontrada\", \"mensagem\": \"Tarefa não encontrada\", \"path\": \"/api/cost/tasks/1/services\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        ),
+        @ApiResponse(
+            responseCode = "409", 
+            description = "Serviço já atribuído à tarefa",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 409, \"erro\": \"Serviço já atribuído\", \"mensagem\": \"Este serviço já foi adicionado a esta tarefa\", \"path\": \"/api/cost/tasks/1/services\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        )
     })
     @PostMapping("/tasks/{taskId}/services")
     public ResponseEntity<TaskServiceDto> addServiceToTask(
@@ -162,9 +232,17 @@ public class CostController {
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Lista de serviços da tarefa retornada com sucesso"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado"),
-        @ApiResponse(responseCode = "404", description = "Tarefa não encontrada")
+        @ApiResponse(
+            responseCode = "404", 
+            description = "Tarefa não encontrada",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 404, \"erro\": \"Tarefa não encontrada\", \"mensagem\": \"Tarefa não encontrada\", \"path\": \"/api/cost/tasks/1/services\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        )
     })
     @GetMapping("/tasks/{taskId}/services")
     public ResponseEntity<List<TaskServiceDto>> getTaskServices(
@@ -185,9 +263,17 @@ public class CostController {
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "204", description = "Serviço removido da tarefa com sucesso"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado"),
-        @ApiResponse(responseCode = "404", description = "Tarefa ou serviço não encontrado")
+        @ApiResponse(
+            responseCode = "404", 
+            description = "Serviço não está vinculado à tarefa",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 404, \"erro\": \"Serviço não atribuído à tarefa\", \"mensagem\": \"Este serviço não está vinculado a esta tarefa\", \"path\": \"/api/cost/tasks/1/services/1\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        )
     })
     @DeleteMapping("/tasks/{taskId}/services/{serviceId}")
     public ResponseEntity<Void> removeServiceFromTask(
@@ -209,12 +295,36 @@ public class CostController {
         description = "Atualiza o percentual de progresso de uma tarefa e recalcula custos realizados"
     )
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Progresso atualizado com sucesso",
-                content = @Content(schema = @Schema(implementation = TaskViewDto.class))),
-        @ApiResponse(responseCode = "400", description = "Dados inválidos ou progresso inválido"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado"),
-        @ApiResponse(responseCode = "404", description = "Tarefa não encontrada")
+        @ApiResponse(
+            responseCode = "200", 
+            description = "Progresso atualizado com sucesso",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = TaskViewDto.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "400", 
+            description = "Dados inválidos",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 400, \"erro\": \"Dados inválidos\", \"mensagem\": \"progressPercentage: deve estar entre 0 e 100\", \"path\": \"/api/cost/tasks/1/progress\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        ),
+        @ApiResponse(
+            responseCode = "404", 
+            description = "Tarefa não encontrada",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 404, \"erro\": \"Tarefa não encontrada\", \"mensagem\": \"Tarefa não encontrada\", \"path\": \"/api/cost/tasks/1/progress\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        )
     })
     @PutMapping("/tasks/{taskId}/progress")
     public ResponseEntity<TaskViewDto> updateTaskProgress(
@@ -235,11 +345,25 @@ public class CostController {
         description = "Gera relatório detalhado dos custos de uma tarefa incluindo mão de obra, materiais e equipamentos"
     )
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Relatório gerado com sucesso",
-                content = @Content(schema = @Schema(implementation = TaskCostReportDto.class))),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado"),
-        @ApiResponse(responseCode = "404", description = "Tarefa não encontrada")
+        @ApiResponse(
+            responseCode = "200", 
+            description = "Relatório gerado com sucesso",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = TaskCostReportDto.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "404", 
+            description = "Tarefa não encontrada",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 404, \"erro\": \"Tarefa não encontrada\", \"mensagem\": \"Tarefa não encontrada\", \"path\": \"/api/cost/tasks/1/report\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        )
     })
     @GetMapping("/tasks/{taskId}/report")
     public ResponseEntity<TaskCostReportDto> getTaskCostReport(
@@ -259,9 +383,17 @@ public class CostController {
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "204", description = "Custos recalculados com sucesso"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado"),
-        @ApiResponse(responseCode = "404", description = "Tarefa não encontrada")
+        @ApiResponse(
+            responseCode = "404", 
+            description = "Tarefa não encontrada",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 404, \"erro\": \"Tarefa não encontrada\", \"mensagem\": \"Tarefa não encontrada\", \"path\": \"/api/cost/tasks/1/recalculate\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        )
     })
     @PostMapping("/tasks/{taskId}/recalculate")
     public ResponseEntity<Void> recalculateTaskCosts(
@@ -281,11 +413,25 @@ public class CostController {
         description = "Retorna informações detalhadas do orçamento de um projeto incluindo custos estimados e realizados"
     )
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Orçamento obtido com sucesso",
-                content = @Content(schema = @Schema(implementation = ProjectBudgetDto.class))),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado"),
-        @ApiResponse(responseCode = "404", description = "Projeto não encontrado")
+        @ApiResponse(
+            responseCode = "200", 
+            description = "Orçamento obtido com sucesso",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ProjectBudgetDto.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "404", 
+            description = "Projeto não encontrado",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 404, \"erro\": \"Projeto não encontrado\", \"mensagem\": \"Projeto não encontrado\", \"path\": \"/api/cost/projects/1/budget\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        )
     })
     @GetMapping("/projects/{projectId}/budget")
     public ResponseEntity<ProjectBudgetDto> getProjectBudget(
@@ -305,9 +451,17 @@ public class CostController {
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "204", description = "Custo realizado recalculado com sucesso"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado"),
-        @ApiResponse(responseCode = "404", description = "Projeto não encontrado")
+        @ApiResponse(
+            responseCode = "404", 
+            description = "Projeto não encontrado",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 404, \"erro\": \"Projeto não encontrado\", \"mensagem\": \"Projeto não encontrado\", \"path\": \"/api/cost/projects/1/recalculate-cost\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        )
     })
     @PostMapping("/projects/{projectId}/recalculate-cost")
     public ResponseEntity<Void> recalculateProjectRealizedCost(
@@ -327,9 +481,17 @@ public class CostController {
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "204", description = "Progresso recalculado com sucesso"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado"),
-        @ApiResponse(responseCode = "404", description = "Projeto não encontrado")
+        @ApiResponse(
+            responseCode = "404", 
+            description = "Projeto não encontrado",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 404, \"erro\": \"Projeto não encontrado\", \"mensagem\": \"Projeto não encontrado\", \"path\": \"/api/cost/projects/1/recalculate-progress\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        )
     })
     @PostMapping("/projects/{projectId}/recalculate-progress")
     public ResponseEntity<Void> recalculateProjectProgress(
@@ -348,13 +510,20 @@ public class CostController {
         description = "Gera relatório consolidado do orçamento de todos os projetos do sistema"
     )
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Relatório gerado com sucesso"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado")
+        @ApiResponse(
+            responseCode = "200", 
+            description = "Relatório gerado com sucesso",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ProjectBudgetDto.class)
+            )
+        )
     })
     @GetMapping("/projects/budget-report")
     public ResponseEntity<List<ProjectBudgetDto>> getAllProjectsBudgetReport() {
-        List<ProjectBudgetDto> report = projectService.getAllProjectsBudgetReport();
+        List<ProjectBudgetDto> report = projectService.getAllProjects().stream()
+                .map(project -> projectService.getProjectBudget(project.getId()))
+                .collect(Collectors.toList());
         return ResponseEntity.ok(report);
     }
 
@@ -368,16 +537,21 @@ public class CostController {
         description = "Retorna lista de projetos que estão com custos acima do orçamento planejado"
     )
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Lista de projetos com orçamento estourado retornada com sucesso"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado")
+        @ApiResponse(
+            responseCode = "200", 
+            description = "Lista de projetos com orçamento estourado retornada com sucesso",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ProjectBudgetDto.class)
+            )
+        )
     })
     @GetMapping("/projects/over-budget")
     public ResponseEntity<List<ProjectBudgetDto>> getProjectsOverBudget() {
-        List<ProjectBudgetDto> overBudgetProjects = projectService.getAllProjectsBudgetReport()
-                .stream()
-                .filter(project -> project.getIsOverBudget())
-                .toList();
+        List<ProjectBudgetDto> overBudgetProjects = projectService.getAllProjects().stream()
+                .map(project -> projectService.getProjectBudget(project.getId()))
+                .filter(project -> project.getIsOverBudget() != null && project.getIsOverBudget())
+                .collect(Collectors.toList());
         return ResponseEntity.ok(overBudgetProjects);
     }
 } 

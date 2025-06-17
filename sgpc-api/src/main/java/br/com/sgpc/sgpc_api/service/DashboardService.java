@@ -16,6 +16,7 @@ import br.com.sgpc.sgpc_api.entity.Task;
 import br.com.sgpc.sgpc_api.enums.ProjectStatus;
 import br.com.sgpc.sgpc_api.enums.RequestStatus;
 import br.com.sgpc.sgpc_api.enums.TaskStatus;
+import br.com.sgpc.sgpc_api.exception.DashboardDataException;
 import br.com.sgpc.sgpc_api.repository.MaterialRepository;
 import br.com.sgpc.sgpc_api.repository.MaterialRequestRepository;
 import br.com.sgpc.sgpc_api.repository.ProjectRepository;
@@ -63,10 +64,12 @@ public class DashboardService {
      * estado atual do sistema e suas métricas de desempenho.
      * 
      * @return DashboardDto dados consolidados do dashboard com todas as métricas
+     * @throws DashboardDataException se houver erro no carregamento dos dados
      */
     public DashboardDto getDashboardData() {
-        LocalDate today = LocalDate.now();
-        LocalDate firstDayOfMonth = today.with(TemporalAdjusters.firstDayOfMonth());
+        try {
+            LocalDate today = LocalDate.now();
+            LocalDate firstDayOfMonth = today.with(TemporalAdjusters.firstDayOfMonth());
 
         // Dados de projetos
         Long totalProjectsLong = projectRepository.count();
@@ -149,5 +152,9 @@ public class DashboardService {
         dashboardDto.setMonthlyStats(monthlyStats);
         
         return dashboardDto;
+            
+        } catch (Exception e) {
+            throw new DashboardDataException("Erro ao carregar dados do dashboard: " + e.getMessage(), e);
+        }
     }
 } 

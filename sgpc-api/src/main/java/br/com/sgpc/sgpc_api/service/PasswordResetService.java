@@ -12,6 +12,9 @@ import br.com.sgpc.sgpc_api.dto.PasswordResetDto;
 import br.com.sgpc.sgpc_api.dto.PasswordResetRequestDto;
 import br.com.sgpc.sgpc_api.entity.PasswordResetToken;
 import br.com.sgpc.sgpc_api.entity.User;
+import br.com.sgpc.sgpc_api.exception.ExpiredTokenException;
+import br.com.sgpc.sgpc_api.exception.InvalidTokenException;
+import br.com.sgpc.sgpc_api.exception.UserNotFoundException;
 import br.com.sgpc.sgpc_api.repository.PasswordResetTokenRepository;
 import br.com.sgpc.sgpc_api.repository.UserRepository;
 
@@ -60,11 +63,11 @@ public class PasswordResetService {
      * 
      * @param request dados da solicitação contendo email do usuário
      * @return String token gerado para redefinição
-     * @throws RuntimeException se o usuário não for encontrado
+     * @throws UserNotFoundException se o usuário não for encontrado
      */
     public String generatePasswordResetToken(PasswordResetRequestDto request) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado com este email"));
+                .orElseThrow(() -> new UserNotFoundException("Email não encontrado no sistema"));
         
         // Remove tokens antigos do usuário para evitar acúmulo
         passwordResetTokenRepository.deleteByUser_Id(user.getId());
@@ -95,14 +98,15 @@ public class PasswordResetService {
      * para evitar reutilização.
      * 
      * @param resetDto dados contendo token e nova senha
-     * @throws RuntimeException se token inválido ou expirado
+     * @throws InvalidTokenException se token inválido
+     * @throws ExpiredTokenException se token expirado
      */
     public void resetPassword(PasswordResetDto resetDto) {
         PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(resetDto.getToken())
-                .orElseThrow(() -> new RuntimeException("Token inválido"));
+                .orElseThrow(() -> new InvalidTokenException("Token de recuperação inválido"));
         
         if (resetToken.isExpired()) {
-            throw new RuntimeException("Token expirado");
+            throw new ExpiredTokenException("Token de recuperação expirado. Solicite um novo token");
         }
         
         User user = resetToken.getUser();

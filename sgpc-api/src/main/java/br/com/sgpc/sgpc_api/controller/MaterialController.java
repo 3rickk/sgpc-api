@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.com.sgpc.sgpc_api.dto.ErrorResponseDto;
 import br.com.sgpc.sgpc_api.dto.MaterialCreateDto;
 import br.com.sgpc.sgpc_api.dto.MaterialDto;
 import br.com.sgpc.sgpc_api.dto.MaterialUpdateDto;
@@ -25,6 +26,7 @@ import br.com.sgpc.sgpc_api.service.MaterialService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -57,7 +59,6 @@ public class MaterialController {
      * 
      * @param materialCreateDto dados do material a ser criado
      * @return ResponseEntity contendo os dados do material criado
-     * @throws RuntimeException se ocorrer erro na criação
      */
     @PostMapping
     @Operation(
@@ -67,20 +68,44 @@ public class MaterialController {
     @ApiResponses(value = {
         @ApiResponse(responseCode = "201", description = "Material criado com sucesso",
                     content = @Content(schema = @Schema(implementation = MaterialDto.class))),
-        @ApiResponse(responseCode = "400", description = "Dados inválidos"),
-        @ApiResponse(responseCode = "401", description = "Não autorizado"),
-        @ApiResponse(responseCode = "409", description = "Material já existe"),
-        @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+        @ApiResponse(responseCode = "400", description = "Dados inválidos",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 400, \"erro\": \"Dados inválidos\", \"mensagem\": \"Nome do material é obrigatório\", \"path\": \"/api/materials\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                )),
+        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 401, \"erro\": \"Token expirado\", \"mensagem\": \"Sua sessão expirou. Faça login novamente\", \"path\": \"/api/materials\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                )),
+        @ApiResponse(responseCode = "409", description = "Material já existe",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 409, \"erro\": \"Material já existe\", \"mensagem\": \"Já existe um material cadastrado com o nome: Cimento Portland\", \"path\": \"/api/materials\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                )),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 500, \"erro\": \"Erro interno do servidor\", \"mensagem\": \"Ocorreu um erro inesperado. Tente novamente mais tarde\", \"path\": \"/api/materials\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                ))
     })
     public ResponseEntity<MaterialDto> createMaterial(
             @Parameter(description = "Dados do material a ser criado", required = true)
             @Valid @RequestBody MaterialCreateDto materialCreateDto) {
-        try {
             MaterialDto createdMaterial = materialService.createMaterial(materialCreateDto);
             return ResponseEntity.status(HttpStatus.CREATED).body(createdMaterial);
-        } catch (Exception e) {
-            throw new RuntimeException("Erro ao criar material: " + e.getMessage());
-        }
     }
 
     /**
@@ -95,7 +120,14 @@ public class MaterialController {
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Lista de materiais obtida com sucesso"),
-        @ApiResponse(responseCode = "401", description = "Não autorizado")
+        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 401, \"erro\": \"Token expirado\", \"mensagem\": \"Sua sessão expirou. Faça login novamente\", \"path\": \"/api/materials\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                ))
     })
     public ResponseEntity<List<MaterialDto>> getAllMaterials() {
         List<MaterialDto> materials = materialService.getAllMaterials();
@@ -116,8 +148,22 @@ public class MaterialController {
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Material encontrado",
                     content = @Content(schema = @Schema(implementation = MaterialDto.class))),
-        @ApiResponse(responseCode = "401", description = "Não autorizado"),
-        @ApiResponse(responseCode = "404", description = "Material não encontrado")
+        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 401, \"erro\": \"Token expirado\", \"mensagem\": \"Sua sessão expirou. Faça login novamente\", \"path\": \"/api/materials/1\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                )),
+        @ApiResponse(responseCode = "404", description = "Material não encontrado",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 404, \"erro\": \"Material não encontrado\", \"mensagem\": \"Material com ID 999 não foi encontrado\", \"path\": \"/api/materials/999\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                ))
     })
     public ResponseEntity<MaterialDto> getMaterialById(
             @Parameter(description = "ID do material", required = true)
@@ -133,7 +179,6 @@ public class MaterialController {
      * @param id ID do material a ser atualizado
      * @param materialUpdateDto dados para atualização do material
      * @return ResponseEntity contendo os dados atualizados do material
-     * @throws RuntimeException se ocorrer erro na atualização
      */
     @PutMapping("/{id}")
     @Operation(
@@ -143,22 +188,54 @@ public class MaterialController {
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Material atualizado com sucesso",
                     content = @Content(schema = @Schema(implementation = MaterialDto.class))),
-        @ApiResponse(responseCode = "400", description = "Dados inválidos"),
-        @ApiResponse(responseCode = "401", description = "Não autorizado"),
-        @ApiResponse(responseCode = "404", description = "Material não encontrado"),
-        @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+        @ApiResponse(responseCode = "400", description = "Dados inválidos",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 400, \"erro\": \"Dados inválidos\", \"mensagem\": \"Preço unitário deve ser maior que zero\", \"path\": \"/api/materials/1\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                )),
+        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 401, \"erro\": \"Token expirado\", \"mensagem\": \"Sua sessão expirou. Faça login novamente\", \"path\": \"/api/materials/1\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                )),
+        @ApiResponse(responseCode = "404", description = "Material não encontrado",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 404, \"erro\": \"Material não encontrado\", \"mensagem\": \"Material com ID 999 não foi encontrado\", \"path\": \"/api/materials/999\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                )),
+        @ApiResponse(responseCode = "409", description = "Material já existe",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 409, \"erro\": \"Material já existe\", \"mensagem\": \"Já existe um material cadastrado com o nome: Cimento Portland\", \"path\": \"/api/materials/1\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                )),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 500, \"erro\": \"Erro interno do servidor\", \"mensagem\": \"Ocorreu um erro inesperado. Tente novamente mais tarde\", \"path\": \"/api/materials/1\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                ))
     })
     public ResponseEntity<MaterialDto> updateMaterial(
             @Parameter(description = "ID do material", required = true)
             @PathVariable Long id,
             @Parameter(description = "Dados para atualização do material", required = true)
             @Valid @RequestBody MaterialUpdateDto materialUpdateDto) {
-        try {
             MaterialDto updatedMaterial = materialService.updateMaterial(id, materialUpdateDto);
             return ResponseEntity.ok(updatedMaterial);
-        } catch (Exception e) {
-            throw new RuntimeException("Erro ao atualizar material: " + e.getMessage());
-        }
     }
 
     /**
@@ -166,7 +243,6 @@ public class MaterialController {
      * 
      * @param id ID do material a ser excluído
      * @return ResponseEntity sem conteúdo (204)
-     * @throws RuntimeException se ocorrer erro na exclusão
      */
     @DeleteMapping("/{id}")
     @Operation(
@@ -175,20 +251,36 @@ public class MaterialController {
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "204", description = "Material excluído com sucesso"),
-        @ApiResponse(responseCode = "401", description = "Não autorizado"),
-        @ApiResponse(responseCode = "404", description = "Material não encontrado"),
-        @ApiResponse(responseCode = "409", description = "Material em uso e não pode ser excluído"),
-        @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 401, \"erro\": \"Token expirado\", \"mensagem\": \"Sua sessão expirou. Faça login novamente\", \"path\": \"/api/materials/1\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                )),
+        @ApiResponse(responseCode = "404", description = "Material não encontrado",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 404, \"erro\": \"Material não encontrado\", \"mensagem\": \"Material com ID 999 não foi encontrado\", \"path\": \"/api/materials/999\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                )),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 500, \"erro\": \"Erro interno do servidor\", \"mensagem\": \"Ocorreu um erro inesperado. Tente novamente mais tarde\", \"path\": \"/api/materials/1\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                ))
     })
     public ResponseEntity<Void> deleteMaterial(
             @Parameter(description = "ID do material", required = true)
             @PathVariable Long id) {
-        try {
             materialService.deleteMaterial(id);
             return ResponseEntity.noContent().build();
-        } catch (Exception e) {
-            throw new RuntimeException("Erro ao deletar material: " + e.getMessage());
-        }
     }
 
     /**
@@ -204,7 +296,22 @@ public class MaterialController {
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Lista de materiais encontrados"),
-        @ApiResponse(responseCode = "401", description = "Não autorizado")
+        @ApiResponse(responseCode = "400", description = "Parâmetro inválido",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 400, \"erro\": \"Dados inválidos\", \"mensagem\": \"Parâmetro 'name' é obrigatório\", \"path\": \"/api/materials/search\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                )),
+        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 401, \"erro\": \"Token expirado\", \"mensagem\": \"Sua sessão expirou. Faça login novamente\", \"path\": \"/api/materials/search\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                ))
     })
     public ResponseEntity<List<MaterialDto>> searchMaterials(
             @Parameter(description = "Nome do material para pesquisa", required = true)
@@ -214,7 +321,7 @@ public class MaterialController {
     }
 
     /**
-     * Obtém materiais de um fornecedor específico.
+     * Obtém materiais por fornecedor.
      * 
      * @param supplier nome do fornecedor
      * @return ResponseEntity contendo lista de materiais do fornecedor
@@ -226,7 +333,14 @@ public class MaterialController {
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Lista de materiais do fornecedor"),
-        @ApiResponse(responseCode = "401", description = "Não autorizado")
+        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 401, \"erro\": \"Token expirado\", \"mensagem\": \"Sua sessão expirou. Faça login novamente\", \"path\": \"/api/materials/supplier/Fornecedor%20ABC\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                ))
     })
     public ResponseEntity<List<MaterialDto>> getMaterialsBySupplier(
             @Parameter(description = "Nome do fornecedor", required = true)
@@ -238,9 +352,6 @@ public class MaterialController {
     /**
      * Obtém materiais com estoque baixo.
      * 
-     * Retorna materiais que estão com quantidade atual abaixo
-     * do estoque mínimo definido.
-     * 
      * @return ResponseEntity contendo lista de materiais com estoque baixo
      */
     @GetMapping("/low-stock")
@@ -250,24 +361,26 @@ public class MaterialController {
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Lista de materiais com estoque baixo"),
-        @ApiResponse(responseCode = "401", description = "Não autorizado")
+        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 401, \"erro\": \"Token expirado\", \"mensagem\": \"Sua sessão expirou. Faça login novamente\", \"path\": \"/api/materials/low-stock\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                ))
     })
     public ResponseEntity<List<MaterialDto>> getMaterialsBelowMinimumStock() {
         List<MaterialDto> materials = materialService.getMaterialsBelowMinimumStock();
         return ResponseEntity.ok(materials);
     }
-
-    // Endpoints para controle de estoque
     
     /**
-     * Atualiza o estoque de um material.
-     * 
-     * Permite entrada ou saída de material com registro de movimentação.
+     * Atualiza estoque de um material.
      * 
      * @param id ID do material
      * @param stockMovementDto dados da movimentação de estoque
-     * @return ResponseEntity contendo os dados atualizados do material
-     * @throws RuntimeException se ocorrer erro na atualização
+     * @return ResponseEntity contendo o material com estoque atualizado
      */
     @PostMapping("/{id}/stock")
     @Operation(
@@ -277,33 +390,57 @@ public class MaterialController {
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Estoque atualizado com sucesso",
                     content = @Content(schema = @Schema(implementation = MaterialDto.class))),
-        @ApiResponse(responseCode = "400", description = "Dados inválidos ou estoque insuficiente"),
-        @ApiResponse(responseCode = "401", description = "Não autorizado"),
-        @ApiResponse(responseCode = "404", description = "Material não encontrado"),
-        @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+        @ApiResponse(responseCode = "400", description = "Dados inválidos ou estoque insuficiente",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = {
+                        @ExampleObject(name = "Tipo inválido", 
+                            value = "{\"status\": 400, \"erro\": \"Tipo de movimentação inválido\", \"mensagem\": \"Tipo de movimentação 'INVALIDO' é inválido. Use 'ENTRADA' ou 'SAIDA'\", \"path\": \"/api/materials/1/stock\", \"timestamp\": \"2024-01-15T10:30:00\"}"),
+                        @ExampleObject(name = "Estoque insuficiente", 
+                            value = "{\"status\": 400, \"erro\": \"Estoque insuficiente\", \"mensagem\": \"Estoque insuficiente para Cimento Portland\", \"path\": \"/api/materials/1/stock\", \"timestamp\": \"2024-01-15T10:30:00\"}")
+                    }
+                )),
+        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 401, \"erro\": \"Token expirado\", \"mensagem\": \"Sua sessão expirou. Faça login novamente\", \"path\": \"/api/materials/1/stock\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                )),
+        @ApiResponse(responseCode = "404", description = "Material não encontrado",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 404, \"erro\": \"Material não encontrado\", \"mensagem\": \"Material com ID 999 não foi encontrado\", \"path\": \"/api/materials/999/stock\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                )),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 500, \"erro\": \"Erro interno do servidor\", \"mensagem\": \"Ocorreu um erro inesperado. Tente novamente mais tarde\", \"path\": \"/api/materials/1/stock\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                ))
     })
     public ResponseEntity<MaterialDto> updateStock(
             @Parameter(description = "ID do material", required = true)
             @PathVariable Long id,
             @Parameter(description = "Dados da movimentação de estoque", required = true)
             @Valid @RequestBody StockMovementDto stockMovementDto) {
-        try {
             MaterialDto updatedMaterial = materialService.updateStock(id, stockMovementDto);
             return ResponseEntity.ok(updatedMaterial);
-        } catch (Exception e) {
-            throw new RuntimeException("Erro ao atualizar estoque: " + e.getMessage());
-        }
     }
 
     /**
      * Adiciona quantidade ao estoque.
      * 
-     * Endpoint simplificado para entrada de material no estoque.
-     * 
      * @param id ID do material
      * @param quantity quantidade a ser adicionada
-     * @return ResponseEntity contendo os dados atualizados do material
-     * @throws RuntimeException se ocorrer erro na adição
+     * @return ResponseEntity contendo o material com estoque atualizado
      */
     @PostMapping("/{id}/stock/add")
     @Operation(
@@ -313,33 +450,54 @@ public class MaterialController {
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Quantidade adicionada com sucesso",
                     content = @Content(schema = @Schema(implementation = MaterialDto.class))),
-        @ApiResponse(responseCode = "400", description = "Quantidade inválida"),
-        @ApiResponse(responseCode = "401", description = "Não autorizado"),
-        @ApiResponse(responseCode = "404", description = "Material não encontrado"),
-        @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+        @ApiResponse(responseCode = "400", description = "Quantidade inválida",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 400, \"erro\": \"Dados inválidos\", \"mensagem\": \"Quantidade deve ser maior que zero\", \"path\": \"/api/materials/1/stock/add\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                )),
+        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 401, \"erro\": \"Token expirado\", \"mensagem\": \"Sua sessão expirou. Faça login novamente\", \"path\": \"/api/materials/1/stock/add\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                )),
+        @ApiResponse(responseCode = "404", description = "Material não encontrado",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 404, \"erro\": \"Material não encontrado\", \"mensagem\": \"Material com ID 999 não foi encontrado\", \"path\": \"/api/materials/999/stock/add\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                )),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 500, \"erro\": \"Erro interno do servidor\", \"mensagem\": \"Ocorreu um erro inesperado. Tente novamente mais tarde\", \"path\": \"/api/materials/1/stock/add\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                ))
     })
     public ResponseEntity<MaterialDto> addStock(
             @Parameter(description = "ID do material", required = true)
             @PathVariable Long id,
             @Parameter(description = "Quantidade a ser adicionada", required = true)
             @RequestParam BigDecimal quantity) {
-        try {
             MaterialDto updatedMaterial = materialService.addStock(id, quantity);
             return ResponseEntity.ok(updatedMaterial);
-        } catch (Exception e) {
-            throw new RuntimeException("Erro ao adicionar estoque: " + e.getMessage());
-        }
     }
 
     /**
      * Remove quantidade do estoque.
      * 
-     * Endpoint simplificado para saída de material do estoque.
-     * 
      * @param id ID do material
      * @param quantity quantidade a ser removida
-     * @return ResponseEntity contendo os dados atualizados do material
-     * @throws RuntimeException se ocorrer erro na remoção ou estoque insuficiente
+     * @return ResponseEntity contendo o material com estoque atualizado
      */
     @PostMapping("/{id}/stock/remove")
     @Operation(
@@ -349,21 +507,48 @@ public class MaterialController {
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Quantidade removida com sucesso",
                     content = @Content(schema = @Schema(implementation = MaterialDto.class))),
-        @ApiResponse(responseCode = "400", description = "Quantidade inválida ou estoque insuficiente"),
-        @ApiResponse(responseCode = "401", description = "Não autorizado"),
-        @ApiResponse(responseCode = "404", description = "Material não encontrado"),
-        @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+        @ApiResponse(responseCode = "400", description = "Quantidade inválida ou estoque insuficiente",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = {
+                        @ExampleObject(name = "Quantidade inválida", 
+                            value = "{\"status\": 400, \"erro\": \"Dados inválidos\", \"mensagem\": \"Quantidade deve ser maior que zero\", \"path\": \"/api/materials/1/stock/remove\", \"timestamp\": \"2024-01-15T10:30:00\"}"),
+                        @ExampleObject(name = "Estoque insuficiente", 
+                            value = "{\"status\": 400, \"erro\": \"Estoque insuficiente\", \"mensagem\": \"Estoque insuficiente para Cimento Portland\", \"path\": \"/api/materials/1/stock/remove\", \"timestamp\": \"2024-01-15T10:30:00\"}")
+                    }
+                )),
+        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 401, \"erro\": \"Token expirado\", \"mensagem\": \"Sua sessão expirou. Faça login novamente\", \"path\": \"/api/materials/1/stock/remove\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                )),
+        @ApiResponse(responseCode = "404", description = "Material não encontrado",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 404, \"erro\": \"Material não encontrado\", \"mensagem\": \"Material com ID 999 não foi encontrado\", \"path\": \"/api/materials/999/stock/remove\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                )),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(
+                        value = "{\"status\": 500, \"erro\": \"Erro interno do servidor\", \"mensagem\": \"Ocorreu um erro inesperado. Tente novamente mais tarde\", \"path\": \"/api/materials/1/stock/remove\", \"timestamp\": \"2024-01-15T10:30:00\"}"
+                    )
+                ))
     })
     public ResponseEntity<MaterialDto> removeStock(
             @Parameter(description = "ID do material", required = true)
             @PathVariable Long id,
             @Parameter(description = "Quantidade a ser removida", required = true)
             @RequestParam BigDecimal quantity) {
-        try {
             MaterialDto updatedMaterial = materialService.removeStock(id, quantity);
             return ResponseEntity.ok(updatedMaterial);
-        } catch (Exception e) {
-            throw new RuntimeException("Erro ao remover estoque: " + e.getMessage());
-        }
     }
 } 

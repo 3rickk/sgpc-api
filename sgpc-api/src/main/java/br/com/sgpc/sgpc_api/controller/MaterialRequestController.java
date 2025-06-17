@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.com.sgpc.sgpc_api.dto.ErrorResponseDto;
 import br.com.sgpc.sgpc_api.dto.MaterialRequestApprovalDto;
 import br.com.sgpc.sgpc_api.dto.MaterialRequestCreateDto;
 import br.com.sgpc.sgpc_api.dto.MaterialRequestDetailsDto;
@@ -24,6 +25,7 @@ import br.com.sgpc.sgpc_api.service.MaterialRequestService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -45,7 +47,7 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/material-requests")
 @CrossOrigin(origins = "*", maxAge = 3600)
 @Tag(name = "Solicitações de Materiais", description = "Endpoints para gestão de solicitações de materiais")
-@SecurityRequirement(name = "bearerAuth")
+@SecurityRequirement(name = "Bearer Authentication")
 public class MaterialRequestController {
 
     @Autowired
@@ -64,21 +66,34 @@ public class MaterialRequestController {
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "201", description = "Solicitação criada com sucesso",
-                content = @Content(schema = @Schema(implementation = MaterialRequestDetailsDto.class))),
-        @ApiResponse(responseCode = "400", description = "Dados inválidos ou projeto/usuário não encontrado"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado")
+                content = @Content(schema = @Schema(implementation = MaterialRequestDetailsDto.class),
+                examples = @ExampleObject(
+                    name = "Solicitação criada",
+                    summary = "Nova solicitação de material",
+                    value = "{\"id\":1,\"projectId\":1,\"projectName\":\"Construção Alpha\",\"requesterId\":1,\"requesterName\":\"João Silva\",\"status\":\"PENDENTE\",\"items\":[{\"materialId\":1,\"materialName\":\"Cimento\",\"quantityRequested\":100.0}],\"requestDate\":\"2024-01-15T10:30:00\"}"
+                ))),
+        @ApiResponse(responseCode = "400", description = "Dados inválidos",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":400,\"erro\":\"Dados inválidos\",\"mensagem\":\"Quantidade solicitada deve ser maior que zero\",\"path\":\"/api/material-requests\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "401", description = "Não autorizado",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":401,\"erro\":\"Não autorizado\",\"mensagem\":\"Token JWT inválido ou expirado\",\"path\":\"/api/material-requests\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "403", description = "Acesso negado",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":403,\"erro\":\"Acesso negado\",\"mensagem\":\"Usuário não possui permissão para criar solicitações\",\"path\":\"/api/material-requests\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "404", description = "Recurso não encontrado",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":404,\"erro\":\"Não encontrado\",\"mensagem\":\"Projeto com ID 1 não foi encontrado\",\"path\":\"/api/material-requests\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/material-requests\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @PostMapping
     public ResponseEntity<MaterialRequestDetailsDto> createMaterialRequest(
             @Valid @RequestBody @Parameter(description = "Dados da solicitação de material") MaterialRequestCreateDto requestDto,
             @RequestParam @Parameter(description = "ID do usuário solicitante", example = "1") Long requesterId) {
-        try {
-            MaterialRequestDetailsDto createdRequest = materialRequestService.createMaterialRequest(requestDto, requesterId);
-            return ResponseEntity.status(HttpStatus.CREATED).body(createdRequest);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().build();
-        }
+        MaterialRequestDetailsDto createdRequest = materialRequestService.createMaterialRequest(requestDto, requesterId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdRequest);
     }
 
     /**
@@ -93,31 +108,42 @@ public class MaterialRequestController {
         description = "Lista todas as solicitações de material com filtros opcionais por status ou projeto"
     )
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Lista de solicitações retornada com sucesso"),
-        @ApiResponse(responseCode = "400", description = "Status inválido"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado")
+        @ApiResponse(responseCode = "200", description = "Lista de solicitações retornada com sucesso",
+                content = @Content(schema = @Schema(implementation = MaterialRequestSummaryDto.class),
+                examples = @ExampleObject(
+                    name = "Lista de solicitações",
+                    summary = "Solicitações de materiais",
+                    value = "[{\"id\":1,\"projectName\":\"Construção Alpha\",\"requesterName\":\"João Silva\",\"status\":\"PENDENTE\",\"itemsCount\":3,\"requestDate\":\"2024-01-15T10:30:00\"},{\"id\":2,\"projectName\":\"Reforma Beta\",\"requesterName\":\"Maria Santos\",\"status\":\"APROVADA\",\"itemsCount\":1,\"requestDate\":\"2024-01-14T15:45:00\"}]"
+                ))),
+        @ApiResponse(responseCode = "400", description = "Parâmetros inválidos",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":400,\"erro\":\"Parâmetro inválido\",\"mensagem\":\"Status 'INVALIDO' não é válido. Use: PENDENTE, APROVADA, REJEITADA\",\"path\":\"/api/material-requests\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "401", description = "Não autorizado",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":401,\"erro\":\"Não autorizado\",\"mensagem\":\"Token JWT inválido ou expirado\",\"path\":\"/api/material-requests\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "403", description = "Acesso negado",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":403,\"erro\":\"Acesso negado\",\"mensagem\":\"Usuário não possui permissão para visualizar solicitações\",\"path\":\"/api/material-requests\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/material-requests\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @GetMapping
     public ResponseEntity<List<MaterialRequestSummaryDto>> getAllMaterialRequests(
             @RequestParam(required = false) @Parameter(description = "Status da solicitação", example = "PENDENTE") String status,
             @RequestParam(required = false) @Parameter(description = "ID do projeto", example = "1") Long projectId) {
-        try {
-            List<MaterialRequestSummaryDto> requests;
-            
-            if (status != null) {
-                RequestStatus requestStatus = RequestStatus.fromString(status);
-                requests = materialRequestService.getMaterialRequestsByStatus(requestStatus);
-            } else if (projectId != null) {
-                requests = materialRequestService.getMaterialRequestsByProject(projectId);
-            } else {
-                requests = materialRequestService.getAllMaterialRequests();
-            }
-            
-            return ResponseEntity.ok(requests);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().build();
+        List<MaterialRequestSummaryDto> requests;
+        
+        if (status != null) {
+            RequestStatus requestStatus = RequestStatus.fromString(status);
+            requests = materialRequestService.getMaterialRequestsByStatus(requestStatus);
+        } else if (projectId != null) {
+            requests = materialRequestService.getMaterialRequestsByProject(projectId);
+        } else {
+            requests = materialRequestService.getAllMaterialRequests();
         }
+        
+        return ResponseEntity.ok(requests);
     }
 
     /**
@@ -132,10 +158,24 @@ public class MaterialRequestController {
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Detalhes da solicitação retornados com sucesso",
-                content = @Content(schema = @Schema(implementation = MaterialRequestDetailsDto.class))),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado"),
-        @ApiResponse(responseCode = "404", description = "Solicitação não encontrada")
+                content = @Content(schema = @Schema(implementation = MaterialRequestDetailsDto.class),
+                examples = @ExampleObject(
+                    name = "Detalhes da solicitação",
+                    summary = "Solicitação completa",
+                    value = "{\"id\":1,\"projectId\":1,\"projectName\":\"Construção Alpha\",\"requesterId\":1,\"requesterName\":\"João Silva\",\"status\":\"PENDENTE\",\"items\":[{\"materialId\":1,\"materialName\":\"Cimento\",\"quantityRequested\":100.0,\"unit\":\"kg\"},{\"materialId\":2,\"materialName\":\"Areia\",\"quantityRequested\":5.0,\"unit\":\"m³\"}],\"requestDate\":\"2024-01-15T10:30:00\",\"notes\":\"Materiais para fundação\"}"
+                ))),
+        @ApiResponse(responseCode = "401", description = "Não autorizado",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":401,\"erro\":\"Não autorizado\",\"mensagem\":\"Token JWT inválido ou expirado\",\"path\":\"/api/material-requests/1\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "403", description = "Acesso negado",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":403,\"erro\":\"Acesso negado\",\"mensagem\":\"Usuário não possui permissão para visualizar esta solicitação\",\"path\":\"/api/material-requests/1\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "404", description = "Solicitação não encontrada",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":404,\"erro\":\"Não encontrado\",\"mensagem\":\"Solicitação com ID 1 não foi encontrada\",\"path\":\"/api/material-requests/1\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/material-requests/1\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @GetMapping("/{id}")
     public ResponseEntity<MaterialRequestDetailsDto> getMaterialRequestById(
@@ -158,22 +198,34 @@ public class MaterialRequestController {
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Solicitação aprovada com sucesso",
-                content = @Content(schema = @Schema(implementation = MaterialRequestDetailsDto.class))),
-        @ApiResponse(responseCode = "400", description = "Solicitação não pode ser aprovada ou usuário não encontrado"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado"),
-        @ApiResponse(responseCode = "404", description = "Solicitação não encontrada")
+                content = @Content(schema = @Schema(implementation = MaterialRequestDetailsDto.class),
+                examples = @ExampleObject(
+                    name = "Solicitação aprovada",
+                    summary = "Status atualizado para aprovada",
+                    value = "{\"id\":1,\"projectId\":1,\"projectName\":\"Construção Alpha\",\"status\":\"APROVADA\",\"approverId\":2,\"approverName\":\"Ana Gerente\",\"approvalDate\":\"2024-01-15T14:30:00\",\"items\":[{\"materialId\":1,\"materialName\":\"Cimento\",\"quantityRequested\":100.0}]}"
+                ))),
+        @ApiResponse(responseCode = "400", description = "Solicitação não pode ser aprovada",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":400,\"erro\":\"Operação inválida\",\"mensagem\":\"Solicitação já foi processada e não pode ser aprovada\",\"path\":\"/api/material-requests/1/approve\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "401", description = "Não autorizado",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":401,\"erro\":\"Não autorizado\",\"mensagem\":\"Token JWT inválido ou expirado\",\"path\":\"/api/material-requests/1/approve\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "403", description = "Acesso negado",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":403,\"erro\":\"Acesso negado\",\"mensagem\":\"Usuário não possui permissão para aprovar solicitações\",\"path\":\"/api/material-requests/1/approve\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "404", description = "Solicitação não encontrada",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":404,\"erro\":\"Não encontrado\",\"mensagem\":\"Solicitação com ID 1 não foi encontrada\",\"path\":\"/api/material-requests/1/approve\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/material-requests/1/approve\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @PutMapping("/{id}/approve")
     public ResponseEntity<MaterialRequestDetailsDto> approveMaterialRequest(
             @PathVariable @Parameter(description = "ID da solicitação", example = "1") Long id,
             @RequestParam @Parameter(description = "ID do usuário aprovador", example = "1") Long approverId) {
-        try {
-            MaterialRequestDetailsDto approvedRequest = materialRequestService.approveMaterialRequest(id, approverId);
-            return ResponseEntity.ok(approvedRequest);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().build();
-        }
+        MaterialRequestDetailsDto approvedRequest = materialRequestService.approveMaterialRequest(id, approverId);
+        return ResponseEntity.ok(approvedRequest);
     }
 
     /**
@@ -190,23 +242,35 @@ public class MaterialRequestController {
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Solicitação rejeitada com sucesso",
-                content = @Content(schema = @Schema(implementation = MaterialRequestDetailsDto.class))),
-        @ApiResponse(responseCode = "400", description = "Solicitação não pode ser rejeitada ou dados inválidos"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado"),
-        @ApiResponse(responseCode = "404", description = "Solicitação não encontrada")
+                content = @Content(schema = @Schema(implementation = MaterialRequestDetailsDto.class),
+                examples = @ExampleObject(
+                    name = "Solicitação rejeitada",
+                    summary = "Status atualizado para rejeitada",
+                    value = "{\"id\":1,\"projectId\":1,\"projectName\":\"Construção Alpha\",\"status\":\"REJEITADA\",\"approverId\":2,\"approverName\":\"Ana Gerente\",\"approvalDate\":\"2024-01-15T14:30:00\",\"rejectionReason\":\"Orçamento insuficiente\",\"items\":[{\"materialId\":1,\"materialName\":\"Cimento\",\"quantityRequested\":100.0}]}"
+                ))),
+        @ApiResponse(responseCode = "400", description = "Dados inválidos ou solicitação não pode ser rejeitada",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":400,\"erro\":\"Operação inválida\",\"mensagem\":\"Justificativa da rejeição é obrigatória\",\"path\":\"/api/material-requests/1/reject\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "401", description = "Não autorizado",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":401,\"erro\":\"Não autorizado\",\"mensagem\":\"Token JWT inválido ou expirado\",\"path\":\"/api/material-requests/1/reject\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "403", description = "Acesso negado",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":403,\"erro\":\"Acesso negado\",\"mensagem\":\"Usuário não possui permissão para rejeitar solicitações\",\"path\":\"/api/material-requests/1/reject\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "404", description = "Solicitação não encontrada",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":404,\"erro\":\"Não encontrado\",\"mensagem\":\"Solicitação com ID 1 não foi encontrada\",\"path\":\"/api/material-requests/1/reject\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/material-requests/1/reject\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @PutMapping("/{id}/reject")
     public ResponseEntity<MaterialRequestDetailsDto> rejectMaterialRequest(
             @PathVariable @Parameter(description = "ID da solicitação", example = "1") Long id,
             @RequestParam @Parameter(description = "ID do usuário que rejeitou", example = "1") Long approverId,
             @Valid @RequestBody @Parameter(description = "Dados da rejeição") MaterialRequestApprovalDto approvalDto) {
-        try {
-            MaterialRequestDetailsDto rejectedRequest = materialRequestService.rejectMaterialRequest(id, approverId, approvalDto);
-            return ResponseEntity.ok(rejectedRequest);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().build();
-        }
+        MaterialRequestDetailsDto rejectedRequest = materialRequestService.rejectMaterialRequest(id, approverId, approvalDto);
+        return ResponseEntity.ok(rejectedRequest);
     }
 
     /**
@@ -219,9 +283,22 @@ public class MaterialRequestController {
         description = "Retorna todas as solicitações de material com status pendente"
     )
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Lista de solicitações pendentes retornada com sucesso"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado")
+        @ApiResponse(responseCode = "200", description = "Lista de solicitações pendentes retornada com sucesso",
+                content = @Content(schema = @Schema(implementation = MaterialRequestSummaryDto.class),
+                examples = @ExampleObject(
+                    name = "Solicitações pendentes",
+                    summary = "Lista de solicitações aguardando aprovação",
+                    value = "[{\"id\":1,\"projectName\":\"Construção Alpha\",\"requesterName\":\"João Silva\",\"status\":\"PENDENTE\",\"itemsCount\":3,\"requestDate\":\"2024-01-15T10:30:00\"},{\"id\":3,\"projectName\":\"Reforma Gama\",\"requesterName\":\"Carlos Pereira\",\"status\":\"PENDENTE\",\"itemsCount\":2,\"requestDate\":\"2024-01-14T09:15:00\"}]"
+                ))),
+        @ApiResponse(responseCode = "401", description = "Não autorizado",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":401,\"erro\":\"Não autorizado\",\"mensagem\":\"Token JWT inválido ou expirado\",\"path\":\"/api/material-requests/pending\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "403", description = "Acesso negado",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":403,\"erro\":\"Acesso negado\",\"mensagem\":\"Usuário não possui permissão para visualizar solicitações pendentes\",\"path\":\"/api/material-requests/pending\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/material-requests/pending\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @GetMapping("/pending")
     public ResponseEntity<List<MaterialRequestSummaryDto>> getPendingMaterialRequests() {
@@ -240,9 +317,22 @@ public class MaterialRequestController {
         description = "Retorna todas as solicitações de material com status aprovado"
     )
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Lista de solicitações aprovadas retornada com sucesso"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado")
+        @ApiResponse(responseCode = "200", description = "Lista de solicitações aprovadas retornada com sucesso",
+                content = @Content(schema = @Schema(implementation = MaterialRequestSummaryDto.class),
+                examples = @ExampleObject(
+                    name = "Solicitações aprovadas",
+                    summary = "Lista de solicitações já aprovadas",
+                    value = "[{\"id\":2,\"projectName\":\"Reforma Beta\",\"requesterName\":\"Maria Santos\",\"status\":\"APROVADA\",\"approverName\":\"Ana Gerente\",\"itemsCount\":1,\"requestDate\":\"2024-01-14T15:45:00\",\"approvalDate\":\"2024-01-14T16:30:00\"},{\"id\":4,\"projectName\":\"Construção Delta\",\"requesterName\":\"Pedro Lima\",\"status\":\"APROVADA\",\"approverName\":\"Carlos Supervisor\",\"itemsCount\":5,\"requestDate\":\"2024-01-13T11:20:00\",\"approvalDate\":\"2024-01-13T14:10:00\"}]"
+                ))),
+        @ApiResponse(responseCode = "401", description = "Não autorizado",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":401,\"erro\":\"Não autorizado\",\"mensagem\":\"Token JWT inválido ou expirado\",\"path\":\"/api/material-requests/approved\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "403", description = "Acesso negado",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":403,\"erro\":\"Acesso negado\",\"mensagem\":\"Usuário não possui permissão para visualizar solicitações aprovadas\",\"path\":\"/api/material-requests/approved\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/material-requests/approved\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @GetMapping("/approved")
     public ResponseEntity<List<MaterialRequestSummaryDto>> getApprovedMaterialRequests() {
@@ -261,9 +351,22 @@ public class MaterialRequestController {
         description = "Retorna todas as solicitações de material com status rejeitado"
     )
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Lista de solicitações rejeitadas retornada com sucesso"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado")
+        @ApiResponse(responseCode = "200", description = "Lista de solicitações rejeitadas retornada com sucesso",
+                content = @Content(schema = @Schema(implementation = MaterialRequestSummaryDto.class),
+                examples = @ExampleObject(
+                    name = "Solicitações rejeitadas",
+                    summary = "Lista de solicitações rejeitadas",
+                    value = "[{\"id\":5,\"projectName\":\"Expansão Epsilon\",\"requesterName\":\"Ana Costa\",\"status\":\"REJEITADA\",\"approverName\":\"Roberto Diretor\",\"itemsCount\":2,\"requestDate\":\"2024-01-12T14:30:00\",\"approvalDate\":\"2024-01-12T17:45:00\",\"rejectionReason\":\"Orçamento insuficiente para este trimestre\"}]"
+                ))),
+        @ApiResponse(responseCode = "401", description = "Não autorizado",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":401,\"erro\":\"Não autorizado\",\"mensagem\":\"Token JWT inválido ou expirado\",\"path\":\"/api/material-requests/rejected\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "403", description = "Acesso negado",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":403,\"erro\":\"Acesso negado\",\"mensagem\":\"Usuário não possui permissão para visualizar solicitações rejeitadas\",\"path\":\"/api/material-requests/rejected\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/material-requests/rejected\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @GetMapping("/rejected")
     public ResponseEntity<List<MaterialRequestSummaryDto>> getRejectedMaterialRequests() {
@@ -283,10 +386,25 @@ public class MaterialRequestController {
         description = "Retorna todas as solicitações de material de um projeto específico"
     )
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Lista de solicitações do projeto retornada com sucesso"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado"),
-        @ApiResponse(responseCode = "404", description = "Projeto não encontrado")
+        @ApiResponse(responseCode = "200", description = "Lista de solicitações do projeto retornada com sucesso",
+                content = @Content(schema = @Schema(implementation = MaterialRequestSummaryDto.class),
+                examples = @ExampleObject(
+                    name = "Solicitações do projeto",
+                    summary = "Todas as solicitações de um projeto",
+                    value = "[{\"id\":1,\"projectName\":\"Construção Alpha\",\"requesterName\":\"João Silva\",\"status\":\"PENDENTE\",\"itemsCount\":3,\"requestDate\":\"2024-01-15T10:30:00\"},{\"id\":6,\"projectName\":\"Construção Alpha\",\"requesterName\":\"Maria Santos\",\"status\":\"APROVADA\",\"approverName\":\"Ana Gerente\",\"itemsCount\":2,\"requestDate\":\"2024-01-14T08:45:00\",\"approvalDate\":\"2024-01-14T10:20:00\"}]"
+                ))),
+        @ApiResponse(responseCode = "401", description = "Não autorizado",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":401,\"erro\":\"Não autorizado\",\"mensagem\":\"Token JWT inválido ou expirado\",\"path\":\"/api/material-requests/project/1\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "403", description = "Acesso negado",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":403,\"erro\":\"Acesso negado\",\"mensagem\":\"Usuário não possui permissão para visualizar solicitações deste projeto\",\"path\":\"/api/material-requests/project/1\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "404", description = "Projeto não encontrado",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":404,\"erro\":\"Não encontrado\",\"mensagem\":\"Projeto com ID 1 não foi encontrado\",\"path\":\"/api/material-requests/project/1\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/material-requests/project/1\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @GetMapping("/project/{projectId}")
     public ResponseEntity<List<MaterialRequestSummaryDto>> getMaterialRequestsByProject(

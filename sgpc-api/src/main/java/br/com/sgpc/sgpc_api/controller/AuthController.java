@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.com.sgpc.sgpc_api.dto.ErrorResponseDto;
 import br.com.sgpc.sgpc_api.dto.JwtResponseDto;
 import br.com.sgpc.sgpc_api.dto.LoginRequestDto;
 import br.com.sgpc.sgpc_api.dto.PasswordResetDto;
@@ -57,7 +58,6 @@ public class AuthController {
      * 
      * @param loginRequest dados de login (email e senha)
      * @return ResponseEntity contendo o token JWT e informações do usuário
-     * @throws RuntimeException se as credenciais forem inválidas ou ocorrer erro na autenticação
      */
     @PostMapping("/login")
     @Operation(
@@ -76,19 +76,56 @@ public class AuthController {
                 )
             )
         ),
-        @ApiResponse(responseCode = "400", description = "Dados de login inválidos"),
-        @ApiResponse(responseCode = "401", description = "Credenciais incorretas"),
-        @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+        @ApiResponse(
+            responseCode = "400", 
+            description = "Dados de login inválidos",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 400, \"erro\": \"Dados inválidos\", \"mensagem\": \"email: não deve estar vazio\", \"path\": \"/api/auth/login\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        ),
+        @ApiResponse(
+            responseCode = "401", 
+            description = "Credenciais incorretas",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 401, \"erro\": \"Credenciais inválidas\", \"mensagem\": \"Senha incorreta\", \"path\": \"/api/auth/login\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        ),
+        @ApiResponse(
+            responseCode = "403", 
+            description = "Conta inativa",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 403, \"erro\": \"Conta inativa\", \"mensagem\": \"Conta desativada. Entre em contato com o administrador\", \"path\": \"/api/auth/login\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        ),
+        @ApiResponse(
+            responseCode = "404", 
+            description = "Email não encontrado",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 404, \"erro\": \"Usuário não encontrado\", \"mensagem\": \"Email não encontrado no sistema\", \"path\": \"/api/auth/login\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        )
     })
     public ResponseEntity<JwtResponseDto> authenticateUser(
         @Parameter(description = "Dados de login do usuário", required = true)
         @Valid @RequestBody LoginRequestDto loginRequest) {
-        try {
-            JwtResponseDto response = authService.authenticateUser(loginRequest);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            throw new RuntimeException("Erro ao fazer login: " + e.getMessage());
-        }
+        JwtResponseDto response = authService.authenticateUser(loginRequest);
+        return ResponseEntity.ok(response);
     }
     
     /**
@@ -100,7 +137,6 @@ public class AuthController {
      * 
      * @param signUpRequest dados para registro do novo usuário
      * @return ResponseEntity contendo os dados do usuário criado
-     * @throws RuntimeException se o email já estiver em uso ou ocorrer erro no registro
      */
     @PostMapping("/register")
     @Operation(
@@ -119,18 +155,34 @@ public class AuthController {
                 )
             )
         ),
-        @ApiResponse(responseCode = "400", description = "Dados de registro inválidos ou email já cadastrado"),
-        @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+        @ApiResponse(
+            responseCode = "400", 
+            description = "Dados de registro inválidos",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 400, \"erro\": \"Dados inválidos\", \"mensagem\": \"email: deve ser um endereço de email válido\", \"path\": \"/api/auth/register\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        ),
+        @ApiResponse(
+            responseCode = "409", 
+            description = "Email já cadastrado",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 409, \"erro\": \"Email já cadastrado\", \"mensagem\": \"Este email já está cadastrado no sistema\", \"path\": \"/api/auth/register\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        )
     })
     public ResponseEntity<UserDto> registerUser(
         @Parameter(description = "Dados para registro do novo usuário", required = true)
         @Valid @RequestBody UserRegistrationDto signUpRequest) {
-        try {
-            UserDto user = authService.registerUser(signUpRequest);
-            return ResponseEntity.ok(user);
-        } catch (Exception e) {
-            throw new RuntimeException("Erro ao registrar usuário: " + e.getMessage());
-        }
+        UserDto user = authService.registerUser(signUpRequest);
+        return ResponseEntity.ok(user);
     }
     
     /**
@@ -142,7 +194,6 @@ public class AuthController {
      * 
      * @param request dados da solicitação de recuperação (email)
      * @return ResponseEntity com mensagem de confirmação e token (desenvolvimento)
-     * @throws RuntimeException se o email não for encontrado ou ocorrer erro
      */
     @PostMapping("/forgot-password")
     @Operation(
@@ -160,19 +211,34 @@ public class AuthController {
                 )
             )
         ),
-        @ApiResponse(responseCode = "400", description = "Email inválido"),
-        @ApiResponse(responseCode = "404", description = "Email não encontrado no sistema"),
-        @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+        @ApiResponse(
+            responseCode = "400", 
+            description = "Dados inválidos",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 400, \"erro\": \"Dados inválidos\", \"mensagem\": \"email: não deve estar vazio\", \"path\": \"/api/auth/forgot-password\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        ),
+        @ApiResponse(
+            responseCode = "404", 
+            description = "Email não encontrado",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 404, \"erro\": \"Usuário não encontrado\", \"mensagem\": \"Email não encontrado no sistema\", \"path\": \"/api/auth/forgot-password\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        )
     })
     public ResponseEntity<String> forgotPassword(
         @Parameter(description = "Email para recuperação de senha", required = true)
         @Valid @RequestBody PasswordResetRequestDto request) {
-        try {
-            String token = passwordResetService.generatePasswordResetToken(request);
-            return ResponseEntity.ok("Token de recuperação gerado: " + token + " (Em produção seria enviado por email)");
-        } catch (Exception e) {
-            throw new RuntimeException("Erro ao gerar token de recuperação: " + e.getMessage());
-        }
+        String token = passwordResetService.generatePasswordResetToken(request);
+        return ResponseEntity.ok("Token de recuperação gerado: " + token + " (Em produção seria enviado por email)");
     }
     
     /**
@@ -183,7 +249,6 @@ public class AuthController {
      * 
      * @param resetDto dados para redefinição da senha (token e nova senha)
      * @return ResponseEntity com mensagem de confirmação
-     * @throws RuntimeException se o token for inválido/expirado ou ocorrer erro
      */
     @PostMapping("/reset-password")
     @Operation(
@@ -199,18 +264,33 @@ public class AuthController {
                 examples = @ExampleObject(value = "Senha alterada com sucesso!")
             )
         ),
-        @ApiResponse(responseCode = "400", description = "Token inválido ou dados de redefinição inválidos"),
-        @ApiResponse(responseCode = "401", description = "Token expirado"),
-        @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+        @ApiResponse(
+            responseCode = "400", 
+            description = "Dados inválidos ou token inválido",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 400, \"erro\": \"Token inválido\", \"mensagem\": \"Token de recuperação inválido\", \"path\": \"/api/auth/reset-password\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        ),
+        @ApiResponse(
+            responseCode = "401", 
+            description = "Token expirado",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class),
+                examples = @ExampleObject(
+                    value = "{ \"status\": 401, \"erro\": \"Token expirado\", \"mensagem\": \"Token de recuperação expirado. Solicite um novo token\", \"path\": \"/api/auth/reset-password\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                )
+            )
+        )
     })
     public ResponseEntity<String> resetPassword(
         @Parameter(description = "Dados para redefinição da senha", required = true)
         @Valid @RequestBody PasswordResetDto resetDto) {
-        try {
-            passwordResetService.resetPassword(resetDto);
-            return ResponseEntity.ok("Senha alterada com sucesso!");
-        } catch (Exception e) {
-            throw new RuntimeException("Erro ao alterar senha: " + e.getMessage());
-        }
+        passwordResetService.resetPassword(resetDto);
+        return ResponseEntity.ok("Senha alterada com sucesso!");
     }
 } 

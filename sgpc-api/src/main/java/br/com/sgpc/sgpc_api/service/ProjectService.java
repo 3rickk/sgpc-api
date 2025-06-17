@@ -24,6 +24,11 @@ import br.com.sgpc.sgpc_api.entity.Task;
 import br.com.sgpc.sgpc_api.entity.User;
 import br.com.sgpc.sgpc_api.enums.ProjectStatus;
 import br.com.sgpc.sgpc_api.enums.TaskStatus;
+import br.com.sgpc.sgpc_api.exception.ProjectAlreadyExistsException;
+import br.com.sgpc.sgpc_api.exception.ProjectNotFoundException;
+import br.com.sgpc.sgpc_api.exception.UserAlreadyInTeamException;
+import br.com.sgpc.sgpc_api.exception.UserNotFoundException;
+import br.com.sgpc.sgpc_api.exception.UserNotInTeamException;
 import br.com.sgpc.sgpc_api.repository.ProjectRepository;
 import br.com.sgpc.sgpc_api.repository.TaskRepository;
 import br.com.sgpc.sgpc_api.repository.TaskServiceRepository;
@@ -50,8 +55,6 @@ public class ProjectService {
     @Autowired
     private UserRepository userRepository;
 
-
-
     @Autowired
     private TaskRepository taskRepository;
 
@@ -66,11 +69,12 @@ public class ProjectService {
      * 
      * @param projectCreateDto dados para criação do projeto
      * @return ProjectDetailsDto dados completos do projeto criado
-     * @throws RuntimeException se já existir projeto com o mesmo nome ou usuário não for encontrado
+     * @throws ProjectAlreadyExistsException se já existir projeto com o mesmo nome
+     * @throws RuntimeException se usuário não for encontrado
      */
     public ProjectDetailsDto createProject(ProjectCreateDto projectCreateDto) {
         if (projectRepository.existsByName(projectCreateDto.getName())) {
-            throw new RuntimeException("Já existe um projeto com este nome!");
+            throw new ProjectAlreadyExistsException("Já existe um projeto cadastrado com o nome: " + projectCreateDto.getName());
         }
 
         Project project = new Project();
@@ -90,7 +94,7 @@ public class ProjectService {
             Set<User> teamMembers = new HashSet<>();
             for (Long userId : projectCreateDto.getTeamMemberIds()) {
                 User user = userRepository.findById(userId)
-                        .orElseThrow(() -> new RuntimeException("Usuário não encontrado: " + userId));
+                        .orElseThrow(() -> new UserNotFoundException("Usuário com ID " + userId + " não foi encontrado"));
                 teamMembers.add(user);
             }
             project.setTeamMembers(teamMembers);
@@ -157,17 +161,19 @@ public class ProjectService {
      * @param id identificador único do projeto
      * @param projectUpdateDto dados para atualização (apenas campos não nulos são atualizados)
      * @return ProjectDetailsDto dados atualizados do projeto
-     * @throws RuntimeException se projeto não for encontrado, nome já existir ou usuário não for encontrado
+     * @throws ProjectNotFoundException se projeto não for encontrado
+     * @throws ProjectAlreadyExistsException se nome já existir
+     * @throws RuntimeException se usuário não for encontrado
      */
     public ProjectDetailsDto updateProject(Long id, ProjectUpdateDto projectUpdateDto) {
         Project project = projectRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
+                .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + id + " não foi encontrado"));
 
         // Validar se o nome já existe (apenas se for diferente do atual)
         if (projectUpdateDto.getName() != null && 
             !project.getName().equals(projectUpdateDto.getName()) &&
             projectRepository.existsByName(projectUpdateDto.getName())) {
-            throw new RuntimeException("Já existe um projeto com este nome!");
+            throw new ProjectAlreadyExistsException("Já existe um projeto cadastrado com o nome: " + projectUpdateDto.getName());
         }
 
         // Atualizar campos apenas se fornecidos
@@ -204,7 +210,7 @@ public class ProjectService {
             Set<User> newTeamMembers = new HashSet<>();
             for (Long userId : projectUpdateDto.getTeamMemberIds()) {
                 User user = userRepository.findById(userId)
-                        .orElseThrow(() -> new RuntimeException("Usuário não encontrado: " + userId));
+                        .orElseThrow(() -> new UserNotFoundException("Usuário com ID " + userId + " não foi encontrado"));
                 newTeamMembers.add(user);
             }
             project.setTeamMembers(newTeamMembers);
@@ -214,22 +220,38 @@ public class ProjectService {
         return convertToDetailsDto(savedProject);
     }
 
+    /**
+     * Remove um projeto do sistema.
+     * 
+     * @param id ID do projeto a ser removido
+     * @throws ProjectNotFoundException se o projeto não for encontrado
+     */
     public void deleteProject(Long id) {
         Project project = projectRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
+                .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + id + " não foi encontrado"));
         
         projectRepository.delete(project);
     }
 
+    /**
+     * Adiciona um membro à equipe do projeto.
+     * 
+     * @param projectId ID do projeto
+     * @param userId ID do usuário
+     * @return ProjectDetailsDto dados atualizados do projeto
+     * @throws ProjectNotFoundException se projeto não for encontrado
+     * @throws RuntimeException se usuário não for encontrado
+     * @throws UserAlreadyInTeamException se usuário já estiver na equipe
+     */
     public ProjectDetailsDto addTeamMember(Long projectId, Long userId) {
         Project project = projectRepository.findByIdWithTeamMembers(projectId)
-                .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
+                .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + projectId + " não foi encontrado"));
         
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+                .orElseThrow(() -> new UserNotFoundException("Usuário com ID " + userId + " não foi encontrado"));
 
         if (project.hasTeamMember(user)) {
-            throw new RuntimeException("Usuário já faz parte da equipe do projeto");
+            throw new UserAlreadyInTeamException("O usuário já faz parte da equipe do projeto");
         }
 
         project.addTeamMember(user);
@@ -237,15 +259,25 @@ public class ProjectService {
         return convertToDetailsDto(savedProject);
     }
 
+    /**
+     * Remove um membro da equipe do projeto.
+     * 
+     * @param projectId ID do projeto
+     * @param userId ID do usuário
+     * @return ProjectDetailsDto dados atualizados do projeto
+     * @throws ProjectNotFoundException se projeto não for encontrado
+     * @throws RuntimeException se usuário não for encontrado
+     * @throws UserNotInTeamException se usuário não estiver na equipe
+     */
     public ProjectDetailsDto removeTeamMember(Long projectId, Long userId) {
         Project project = projectRepository.findByIdWithTeamMembers(projectId)
-                .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
+                .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + projectId + " não foi encontrado"));
         
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+                .orElseThrow(() -> new UserNotFoundException("Usuário com ID " + userId + " não foi encontrado"));
 
         if (!project.hasTeamMember(user)) {
-            throw new RuntimeException("Usuário não faz parte da equipe do projeto");
+            throw new UserNotInTeamException("O usuário não faz parte da equipe do projeto");
         }
 
         project.removeTeamMember(user);
@@ -253,10 +285,17 @@ public class ProjectService {
         return convertToDetailsDto(savedProject);
     }
 
+    /**
+     * Lista membros da equipe do projeto.
+     * 
+     * @param projectId ID do projeto
+     * @return List<UserDto> lista de membros da equipe
+     * @throws ProjectNotFoundException se projeto não for encontrado
+     */
     @Transactional(readOnly = true)
     public List<UserDto> getProjectTeamMembers(Long projectId) {
         Project project = projectRepository.findByIdWithTeamMembers(projectId)
-                .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
+                .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + projectId + " não foi encontrado"));
 
         return project.getTeamMembers().stream()
                 .map(this::convertUserToDto)
@@ -264,49 +303,61 @@ public class ProjectService {
     }
 
     // Métodos para gestão de orçamento e custos (RF09)
+
+    /**
+     * Obtém informações de orçamento de um projeto.
+     * 
+     * Calcula e retorna informações detalhadas sobre orçamento planejado,
+     * custos realizados, percentual de utilização e estimativas de conclusão.
+     * 
+     * @param projectId ID do projeto
+     * @return ProjectBudgetDto informações de orçamento do projeto
+     * @throws ProjectNotFoundException se projeto não for encontrado
+     */
     @Transactional(readOnly = true)
     public ProjectBudgetDto getProjectBudget(Long projectId) {
         Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
+                .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + projectId + " não foi encontrado"));
 
         ProjectBudgetDto budgetDto = new ProjectBudgetDto();
-        budgetDto.setProjectId(project.getId());
+        budgetDto.setProjectId(projectId);
         budgetDto.setProjectName(project.getName());
         budgetDto.setTotalBudget(project.getTotalBudget());
-        budgetDto.setRealizedCost(project.getRealizedCost());
-        budgetDto.setBudgetVariance(project.getBudgetVariance());
-        budgetDto.setBudgetUsagePercentage(project.getBudgetUsagePercentage());
-        budgetDto.setProgressPercentage(project.getProgressPercentage());
-        budgetDto.setIsOverBudget(project.isOverBudget());
+        budgetDto.setRealizedCost(project.getRealizedCost() != null ? project.getRealizedCost() : BigDecimal.ZERO);
+        
+        // Calcular variação do orçamento
+        BigDecimal budgetVariance = project.getTotalBudget().subtract(budgetDto.getRealizedCost());
+        budgetDto.setBudgetVariance(budgetVariance);
+        
+        // Calcular percentual utilizado
+        if (project.getTotalBudget().compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal percentage = budgetDto.getRealizedCost()
+                    .divide(project.getTotalBudget(), 4, BigDecimal.ROUND_HALF_UP)
+                    .multiply(BigDecimal.valueOf(100));
+            budgetDto.setBudgetUsagePercentage(percentage);
+        } else {
+            budgetDto.setBudgetUsagePercentage(BigDecimal.ZERO);
+        }
 
-        // Calcular custos detalhados
-        List<Task> projectTasks = taskRepository.findByProjectId(projectId);
-        BigDecimal totalLaborCost = projectTasks.stream()
-                .map(Task::getLaborCost)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal totalMaterialCost = projectTasks.stream()
-                .map(Task::getMaterialCost)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal totalEquipmentCost = projectTasks.stream()
-                .map(Task::getEquipmentCost)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        // Definir progresso do projeto
+        budgetDto.setProgressPercentage(project.getProgressPercentage() != null ? 
+                                      project.getProgressPercentage() : BigDecimal.ZERO);
 
-        budgetDto.setTotalLaborCost(totalLaborCost);
-        budgetDto.setTotalMaterialCost(totalMaterialCost);
-        budgetDto.setTotalEquipmentCost(totalEquipmentCost);
-
-        // Estatísticas das tarefas
-        budgetDto.setTotalTasks(projectTasks.size());
-        budgetDto.setCompletedTasks((int) projectTasks.stream().filter(Task::isCompleted).count());
-        budgetDto.setPendingTasks(budgetDto.getTotalTasks() - budgetDto.getCompletedTasks());
+        // Determinar se está acima do orçamento
+        budgetDto.setIsOverBudget(budgetVariance.compareTo(BigDecimal.ZERO) < 0);
 
         return budgetDto;
     }
 
-    // Recalcular custo realizado do projeto baseado nas tarefas concluídas
+    /**
+     * Recalcula o custo realizado de um projeto baseado nos custos das tarefas.
+     * 
+     * @param projectId ID do projeto
+     * @throws ProjectNotFoundException se projeto não for encontrado
+     */
     public void recalculateProjectRealizedCost(Long projectId) {
         Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
+                .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + projectId + " não foi encontrado"));
 
         // Calcular custo realizado com base nas tarefas concluídas
         BigDecimal realizedCost = taskServiceRepository.calculateRealizedCostByProjectId(projectId);
@@ -323,10 +374,15 @@ public class ProjectService {
         projectRepository.save(project);
     }
 
-    // Recalcular progresso do projeto baseado no progresso das tarefas
+    /**
+     * Recalcula o progresso de um projeto baseado no progresso das tarefas.
+     * 
+     * @param projectId ID do projeto
+     * @throws ProjectNotFoundException se projeto não for encontrado
+     */
     public void recalculateProjectProgress(Long projectId) {
         Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
+                .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + projectId + " não foi encontrado"));
 
         List<Task> projectTasks = taskRepository.findByProjectId(projectId);
 
@@ -346,23 +402,31 @@ public class ProjectService {
         projectRepository.save(project);
     }
 
-    // Verificar se o projeto está acima do orçamento
+    /**
+     * Verifica se o projeto está acima do orçamento.
+     * 
+     * @param projectId ID do projeto
+     * @return true se o projeto está acima do orçamento
+     * @throws ProjectNotFoundException se projeto não for encontrado
+     */
     @Transactional(readOnly = true)
-    public List<ProjectSummaryDto> getProjectsOverBudget() {
-        return projectRepository.findAll().stream()
-                .filter(Project::isOverBudget)
-                .map(this::convertToSummaryDto)
-                .collect(Collectors.toList());
+    public boolean isProjectOverBudget(Long projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + projectId + " não foi encontrado"));
+
+        if (project.getRealizedCost() == null || project.getTotalBudget() == null) {
+            return false;
+        }
+
+        return project.getRealizedCost().compareTo(project.getTotalBudget()) > 0;
     }
 
-    // Relatório consolidado de orçamento de todos os projetos
-    @Transactional(readOnly = true)
-    public List<ProjectBudgetDto> getAllProjectsBudgetReport() {
-        return projectRepository.findAll().stream()
-                .map(project -> getProjectBudget(project.getId()))
-                .collect(Collectors.toList());
-    }
-
+    /**
+     * Converte Project para ProjectDetailsDto.
+     * 
+     * @param project entidade do projeto
+     * @return ProjectDetailsDto dados detalhados do projeto
+     */
     private ProjectDetailsDto convertToDetailsDto(Project project) {
         ProjectDetailsDto dto = new ProjectDetailsDto();
         dto.setId(project.getId());
@@ -375,108 +439,76 @@ public class ProjectService {
         dto.setTotalBudget(project.getTotalBudget());
         dto.setClient(project.getClient());
         dto.setStatus(project.getStatus());
-        dto.setStatusDescription(project.getStatus().getDescription());
         dto.setCreatedAt(project.getCreatedAt());
         dto.setUpdatedAt(project.getUpdatedAt());
-        dto.setTeamSize(project.getTeamSize());
-        
+
         // Converter membros da equipe
         if (project.getTeamMembers() != null) {
-            Set<UserDto> teamMembersDto = project.getTeamMembers().stream()
+            dto.setTeamMembers(project.getTeamMembers().stream()
                     .map(this::convertUserToDto)
-                    .collect(Collectors.toSet());
-            dto.setTeamMembers(teamMembersDto);
+                    .collect(Collectors.toSet()));
         }
 
-        // Calcular campos derivados
-        dto.setProgressPercentage(calculateProgressPercentage(project));
-        dto.setIsDelayed(isProjectDelayed(project));
-        dto.setDaysRemaining(calculateDaysRemaining(project));
+        // Calcular dias de atraso se aplicável
+        if (project.getEndDatePlanned() != null && project.getStatus() != ProjectStatus.CONCLUIDO) {
+            LocalDate today = LocalDate.now();
+            if (today.isAfter(project.getEndDatePlanned())) {
+                long daysOverdue = ChronoUnit.DAYS.between(project.getEndDatePlanned(), today);
+                // Adicionar informação de atraso na descrição ou usar outro campo se disponível
+            }
+        }
 
         return dto;
     }
 
+    /**
+     * Converte Project para ProjectSummaryDto.
+     * 
+     * @param project entidade do projeto
+     * @return ProjectSummaryDto dados resumidos do projeto
+     */
     private ProjectSummaryDto convertToSummaryDto(Project project) {
         ProjectSummaryDto dto = new ProjectSummaryDto();
         dto.setId(project.getId());
         dto.setName(project.getName());
         dto.setClient(project.getClient());
         dto.setStatus(project.getStatus());
-        dto.setStatusDescription(project.getStatus().getDescription());
         dto.setStartDatePlanned(project.getStartDatePlanned());
         dto.setEndDatePlanned(project.getEndDatePlanned());
         dto.setTotalBudget(project.getTotalBudget());
         dto.setCreatedAt(project.getCreatedAt());
-        dto.setTeamSize(project.getTeamSize());
-        dto.setProgressPercentage(calculateProgressPercentage(project));
-        dto.setIsDelayed(isProjectDelayed(project));
-        
+
+        // Calcular progresso percentual
+        if (project.getProgressPercentage() != null) {
+            dto.setProgressPercentage(project.getProgressPercentage().intValue());
+        } else {
+            dto.setProgressPercentage(0);
+        }
+
+        // Calcular tamanho da equipe
+        if (project.getTeamMembers() != null) {
+            dto.setTeamSize(project.getTeamMembers().size());
+        } else {
+            dto.setTeamSize(0);
+        }
+
         return dto;
     }
 
+    /**
+     * Converte User para UserDto.
+     * 
+     * @param user entidade do usuário
+     * @return UserDto dados do usuário
+     */
     private UserDto convertUserToDto(User user) {
         UserDto dto = new UserDto();
         dto.setId(user.getId());
         dto.setFullName(user.getFullName());
         dto.setEmail(user.getEmail());
-        dto.setPhone(user.getPhone());
-        dto.setHourlyRate(user.getHourlyRate());
         dto.setIsActive(user.getIsActive());
         dto.setCreatedAt(user.getCreatedAt());
         dto.setUpdatedAt(user.getUpdatedAt());
-        
-        Set<String> roleNames = user.getRoles().stream()
-                .map(role -> role.getName())
-                .collect(Collectors.toSet());
-        dto.setRoles(roleNames);
-        
         return dto;
-    }
-
-    private Integer calculateProgressPercentage(Project project) {
-        // Usar o progresso calculado do projeto se disponível
-        if (project.getProgressPercentage() != null) {
-            return project.getProgressPercentage().intValue();
-        }
-
-        // Lógica simplificada baseada no status
-        return switch (project.getStatus()) {
-            case PLANEJAMENTO -> 0;
-            case EM_ANDAMENTO -> {
-                // Cálculo baseado nas datas (simplificado)
-                if (project.getStartDateActual() != null && project.getEndDatePlanned() != null) {
-                    LocalDate now = LocalDate.now();
-                    if (now.isBefore(project.getStartDateActual())) yield 0;
-                    if (now.isAfter(project.getEndDatePlanned())) yield 100;
-                    
-                    long totalDays = ChronoUnit.DAYS.between(project.getStartDateActual(), project.getEndDatePlanned());
-                    long elapsedDays = ChronoUnit.DAYS.between(project.getStartDateActual(), now);
-                    
-                    if (totalDays > 0) {
-                        yield Math.min(100, (int) ((elapsedDays * 100) / totalDays));
-                    }
-                }
-                yield 50; // Default para em andamento
-            }
-            case CONCLUIDO -> 100;
-            case PAUSADO, CANCELADO -> 0;
-        };
-    }
-
-    private Boolean isProjectDelayed(Project project) {
-        if (project.getEndDatePlanned() == null) return false;
-        
-        LocalDate now = LocalDate.now();
-        return now.isAfter(project.getEndDatePlanned()) && 
-               !project.getStatus().equals(ProjectStatus.CONCLUIDO);
-    }
-
-    private Long calculateDaysRemaining(Project project) {
-        if (project.getEndDatePlanned() == null) return null;
-        
-        LocalDate now = LocalDate.now();
-        if (project.getStatus().equals(ProjectStatus.CONCLUIDO)) return 0L;
-        
-        return ChronoUnit.DAYS.between(now, project.getEndDatePlanned());
     }
 } 

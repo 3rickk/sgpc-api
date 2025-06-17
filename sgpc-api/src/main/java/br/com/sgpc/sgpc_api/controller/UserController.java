@@ -12,12 +12,15 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.com.sgpc.sgpc_api.dto.ErrorResponseDto;
 import br.com.sgpc.sgpc_api.dto.UserDto;
 import br.com.sgpc.sgpc_api.dto.UserRegistrationDto;
+import br.com.sgpc.sgpc_api.exception.UserNotFoundException;
 import br.com.sgpc.sgpc_api.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -40,7 +43,7 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/users")
 @CrossOrigin(origins = "*", maxAge = 3600)
 @Tag(name = "Gerenciamento de Usuários", description = "Endpoints para gestão de usuários do sistema")
-@SecurityRequirement(name = "bearerAuth")
+@SecurityRequirement(name = "Bearer Authentication")
 public class UserController {
     
     @Autowired
@@ -56,9 +59,17 @@ public class UserController {
         description = "Retorna lista completa de todos os usuários cadastrados no sistema"
     )
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Lista de usuários retornada com sucesso"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado - usuário sem permissão")
+        @ApiResponse(responseCode = "200", description = "Lista de usuários retornada com sucesso",
+                    content = @Content(schema = @Schema(implementation = UserDto.class))),
+        @ApiResponse(responseCode = "401", description = "Não autorizado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":401,\"erro\":\"Não autorizado\",\"mensagem\":\"Token JWT inválido ou expirado\",\"path\":\"/api/users\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "403", description = "Acesso negado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":403,\"erro\":\"Acesso negado\",\"mensagem\":\"Usuário não possui permissão para listar usuários\",\"path\":\"/api/users\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/users\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @GetMapping
     public ResponseEntity<List<UserDto>> getAllUsers() {
@@ -76,9 +87,17 @@ public class UserController {
         description = "Retorna lista de usuários com status ativo no sistema"
     )
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Lista de usuários ativos retornada com sucesso"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado - usuário sem permissão")
+        @ApiResponse(responseCode = "200", description = "Lista de usuários ativos retornada com sucesso",
+                    content = @Content(schema = @Schema(implementation = UserDto.class))),
+        @ApiResponse(responseCode = "401", description = "Não autorizado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":401,\"erro\":\"Não autorizado\",\"mensagem\":\"Token JWT inválido ou expirado\",\"path\":\"/api/users/active\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "403", description = "Acesso negado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":403,\"erro\":\"Acesso negado\",\"mensagem\":\"Usuário não possui permissão para listar usuários ativos\",\"path\":\"/api/users/active\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/users/active\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @GetMapping("/active")
     public ResponseEntity<List<UserDto>> getAllActiveUsers() {
@@ -98,17 +117,30 @@ public class UserController {
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Dados do usuário retornados com sucesso",
-                content = @Content(schema = @Schema(implementation = UserDto.class))),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado - usuário sem permissão"),
-        @ApiResponse(responseCode = "404", description = "Usuário não encontrado")
+                    content = @Content(schema = @Schema(implementation = UserDto.class))),
+        @ApiResponse(responseCode = "400", description = "ID inválido",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":400,\"erro\":\"Dados inválidos\",\"mensagem\":\"ID do usuário deve ser um número positivo\",\"path\":\"/api/users/abc\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "401", description = "Não autorizado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":401,\"erro\":\"Não autorizado\",\"mensagem\":\"Token JWT inválido ou expirado\",\"path\":\"/api/users/1\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "403", description = "Acesso negado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":403,\"erro\":\"Acesso negado\",\"mensagem\":\"Usuário não possui permissão para visualizar este usuário\",\"path\":\"/api/users/1\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "404", description = "Usuário não encontrado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":404,\"erro\":\"Usuário não encontrado\",\"mensagem\":\"Usuário com ID 999 não foi encontrado\",\"path\":\"/api/users/999\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/users/1\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @GetMapping("/{id}")
     public ResponseEntity<UserDto> getUserById(
-            @PathVariable @Parameter(description = "ID do usuário", example = "1") Long id) {
+            @Parameter(description = "ID do usuário", required = true, example = "1") 
+            @PathVariable Long id) {
         return userService.getUserById(id)
                 .map(user -> ResponseEntity.ok(user))
-                .orElse(ResponseEntity.notFound().build());
+                .orElseThrow(() -> new UserNotFoundException("Usuário com ID " + id + " não foi encontrado"));
     }
     
     /**
@@ -120,26 +152,38 @@ public class UserController {
      */
     @Operation(
         summary = "Atualizar usuário",
-        description = "Atualiza os dados de um usuário existente incluindo nome, email e funções"
+        description = "Atualiza os dados de um usuário existente incluindo nome, telefone e valor da hora"
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Usuário atualizado com sucesso",
-                content = @Content(schema = @Schema(implementation = UserDto.class))),
-        @ApiResponse(responseCode = "400", description = "Dados inválidos ou email já utilizado"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado - usuário sem permissão"),
-        @ApiResponse(responseCode = "404", description = "Usuário não encontrado")
+                    content = @Content(schema = @Schema(implementation = UserDto.class))),
+        @ApiResponse(responseCode = "400", description = "Dados inválidos",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":400,\"erro\":\"Dados inválidos\",\"mensagem\":\"Nome completo é obrigatório e deve ter entre 2 e 100 caracteres\",\"path\":\"/api/users/1\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "401", description = "Não autorizado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":401,\"erro\":\"Não autorizado\",\"mensagem\":\"Token JWT inválido ou expirado\",\"path\":\"/api/users/1\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "403", description = "Acesso negado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":403,\"erro\":\"Acesso negado\",\"mensagem\":\"Usuário não possui permissão para atualizar este usuário\",\"path\":\"/api/users/1\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "404", description = "Usuário não encontrado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":404,\"erro\":\"Usuário não encontrado\",\"mensagem\":\"Usuário com ID 999 não foi encontrado\",\"path\":\"/api/users/999\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "409", description = "Email já existe",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":409,\"erro\":\"Email já existe\",\"mensagem\":\"Este email já está cadastrado no sistema\",\"path\":\"/api/users/1\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/users/1\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @PutMapping("/{id}")
     public ResponseEntity<UserDto> updateUser(
-            @PathVariable @Parameter(description = "ID do usuário", example = "1") Long id, 
-            @Valid @RequestBody @Parameter(description = "Dados atualizados do usuário") UserRegistrationDto userDto) {
-        try {
-            UserDto updatedUser = userService.updateUser(id, userDto);
-            return ResponseEntity.ok(updatedUser);
-        } catch (Exception e) {
-            throw new RuntimeException("Erro ao atualizar usuário: " + e.getMessage());
-        }
+            @Parameter(description = "ID do usuário", required = true, example = "1") 
+            @PathVariable Long id, 
+            @Parameter(description = "Dados atualizados do usuário", required = true) 
+            @Valid @RequestBody UserRegistrationDto userDto) {
+        UserDto updatedUser = userService.updateUser(id, userDto);
+        return ResponseEntity.ok(updatedUser);
     }
     
     /**
@@ -153,20 +197,31 @@ public class UserController {
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Usuário desativado com sucesso"),
-        @ApiResponse(responseCode = "400", description = "Erro ao desativar usuário"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado - usuário sem permissão"),
-        @ApiResponse(responseCode = "404", description = "Usuário não encontrado")
+        @ApiResponse(responseCode = "400", description = "ID inválido",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":400,\"erro\":\"Dados inválidos\",\"mensagem\":\"ID do usuário deve ser um número positivo\",\"path\":\"/api/users/abc/deactivate\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "401", description = "Não autorizado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":401,\"erro\":\"Não autorizado\",\"mensagem\":\"Token JWT inválido ou expirado\",\"path\":\"/api/users/1/deactivate\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "403", description = "Acesso negado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":403,\"erro\":\"Acesso negado\",\"mensagem\":\"Usuário não possui permissão para desativar usuários\",\"path\":\"/api/users/1/deactivate\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "404", description = "Usuário não encontrado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":404,\"erro\":\"Usuário não encontrado\",\"mensagem\":\"Usuário com ID 999 não foi encontrado\",\"path\":\"/api/users/999/deactivate\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "409", description = "Usuário já desativado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":409,\"erro\":\"Estado inválido\",\"mensagem\":\"Usuário já está desativado\",\"path\":\"/api/users/1/deactivate\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/users/1/deactivate\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @PutMapping("/{id}/deactivate")
     public ResponseEntity<Void> deactivateUser(
-            @PathVariable @Parameter(description = "ID do usuário", example = "1") Long id) {
-        try {
-            userService.deactivateUser(id);
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            throw new RuntimeException("Erro ao desativar usuário: " + e.getMessage());
-        }
+            @Parameter(description = "ID do usuário", required = true, example = "1") 
+            @PathVariable Long id) {
+        userService.deactivateUser(id);
+        return ResponseEntity.ok().build();
     }
     
     /**
@@ -180,19 +235,30 @@ public class UserController {
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Usuário ativado com sucesso"),
-        @ApiResponse(responseCode = "400", description = "Erro ao ativar usuário"),
-        @ApiResponse(responseCode = "401", description = "Token JWT inválido ou expirado"),
-        @ApiResponse(responseCode = "403", description = "Acesso negado - usuário sem permissão"),
-        @ApiResponse(responseCode = "404", description = "Usuário não encontrado")
+        @ApiResponse(responseCode = "400", description = "ID inválido",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":400,\"erro\":\"Dados inválidos\",\"mensagem\":\"ID do usuário deve ser um número positivo\",\"path\":\"/api/users/abc/activate\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "401", description = "Não autorizado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":401,\"erro\":\"Não autorizado\",\"mensagem\":\"Token JWT inválido ou expirado\",\"path\":\"/api/users/1/activate\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "403", description = "Acesso negado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":403,\"erro\":\"Acesso negado\",\"mensagem\":\"Usuário não possui permissão para ativar usuários\",\"path\":\"/api/users/1/activate\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "404", description = "Usuário não encontrado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":404,\"erro\":\"Usuário não encontrado\",\"mensagem\":\"Usuário com ID 999 não foi encontrado\",\"path\":\"/api/users/999/activate\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "409", description = "Usuário já ativado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":409,\"erro\":\"Estado inválido\",\"mensagem\":\"Usuário já está ativado\",\"path\":\"/api/users/1/activate\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/users/1/activate\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @PutMapping("/{id}/activate")
     public ResponseEntity<Void> activateUser(
-            @PathVariable @Parameter(description = "ID do usuário", example = "1") Long id) {
-        try {
-            userService.activateUser(id);
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            throw new RuntimeException("Erro ao ativar usuário: " + e.getMessage());
-        }
+            @Parameter(description = "ID do usuário", required = true, example = "1") 
+            @PathVariable Long id) {
+        userService.activateUser(id);
+        return ResponseEntity.ok().build();
     }
 } 

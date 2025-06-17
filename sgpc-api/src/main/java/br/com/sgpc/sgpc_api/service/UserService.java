@@ -15,6 +15,8 @@ import br.com.sgpc.sgpc_api.dto.UserDto;
 import br.com.sgpc.sgpc_api.dto.UserRegistrationDto;
 import br.com.sgpc.sgpc_api.entity.Role;
 import br.com.sgpc.sgpc_api.entity.User;
+import br.com.sgpc.sgpc_api.exception.EmailAlreadyExistsException;
+import br.com.sgpc.sgpc_api.exception.UserNotFoundException;
 import br.com.sgpc.sgpc_api.repository.RoleRepository;
 import br.com.sgpc.sgpc_api.repository.UserRepository;
 
@@ -56,11 +58,12 @@ public class UserService {
      * 
      * @param userRegistrationDto dados do usuário a ser criado
      * @return UserDto dados do usuário criado
-     * @throws RuntimeException se o email já estiver em uso ou função não existir
+     * @throws EmailAlreadyExistsException se o email já estiver em uso
+     * @throws RuntimeException se função não existir
      */
     public UserDto createUser(UserRegistrationDto userRegistrationDto) {
         if (userRepository.existsByEmail(userRegistrationDto.getEmail())) {
-            throw new RuntimeException("Email já está em uso!");
+            throw new EmailAlreadyExistsException("Este email já está cadastrado no sistema");
         }
         
         User user = new User();
@@ -76,13 +79,13 @@ public class UserService {
         if (userRegistrationDto.getRoleNames() != null && !userRegistrationDto.getRoleNames().isEmpty()) {
             for (String roleName : userRegistrationDto.getRoleNames()) {
                 Role role = roleRepository.findByName(roleName)
-                        .orElseThrow(() -> new RuntimeException("Role não encontrada: " + roleName));
+                        .orElseThrow(() -> new RuntimeException("Perfil não encontrado: " + roleName));
                 roles.add(role);
             }
         } else {
             // Se não especificar roles, adicionar USER como padrão
             Role userRole = roleRepository.findByName("USER")
-                    .orElseThrow(() -> new RuntimeException("Role USER não encontrada"));
+                    .orElseThrow(() -> new RuntimeException("Perfil padrão não encontrado. Entre em contato com o administrador"));
             roles.add(userRole);
         }
         user.setRoles(roles);
@@ -156,11 +159,11 @@ public class UserService {
      * @param id ID do usuário a ser atualizado
      * @param userRegistrationDto novos dados do usuário
      * @return UserDto usuário atualizado
-     * @throws RuntimeException se o usuário não for encontrado
+     * @throws UserNotFoundException se o usuário não for encontrado
      */
     public UserDto updateUser(Long id, UserRegistrationDto userRegistrationDto) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+                .orElseThrow(() -> new UserNotFoundException("Usuário com ID " + id + " não foi encontrado"));
         
         user.setFullName(userRegistrationDto.getFullName());
         user.setPhone(userRegistrationDto.getPhone());
@@ -181,11 +184,11 @@ public class UserService {
      * são preservados no sistema para histórico.
      * 
      * @param id ID do usuário a ser desativado
-     * @throws RuntimeException se o usuário não for encontrado
+     * @throws UserNotFoundException se o usuário não for encontrado
      */
     public void deactivateUser(Long id) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+                .orElseThrow(() -> new UserNotFoundException("Usuário com ID " + id + " não foi encontrado"));
         
         user.setIsActive(false);
         userRepository.save(user);
@@ -198,11 +201,11 @@ public class UserService {
      * volte a acessar o sistema.
      * 
      * @param id ID do usuário a ser ativado
-     * @throws RuntimeException se o usuário não for encontrado
+     * @throws UserNotFoundException se o usuário não for encontrado
      */
     public void activateUser(Long id) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+                .orElseThrow(() -> new UserNotFoundException("Usuário com ID " + id + " não foi encontrado"));
         
         user.setIsActive(true);
         userRepository.save(user);

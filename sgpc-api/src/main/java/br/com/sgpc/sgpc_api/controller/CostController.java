@@ -51,7 +51,7 @@ import jakarta.validation.Valid;
 @RestController
 @RequestMapping("/api/cost")
 @Tag(name = "Gerenciamento de Custos", description = "Endpoints para gestão de custos, serviços e orçamentos")
-@SecurityRequirement(name = "bearerAuth")
+@SecurityRequirement(name = "Bearer Authentication")
 public class CostController {
 
     @Autowired

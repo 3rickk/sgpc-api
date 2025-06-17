@@ -6,6 +6,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.NonNull;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -74,6 +77,7 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                path.startsWith("/v3/api-docs/") ||
                path.equals("/swagger-ui.html") ||
                path.startsWith("/actuator/health") ||
+               path.equals("/ping") ||
                path.equals("/error");
     }
     
@@ -117,19 +121,24 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                     logger.error("Não foi possível extrair o username do token JWT", e);
                 }
             }
-        } else {
-            logger.warn("Token JWT não encontrado ou não começa com Bearer");
+        } else if (!isPublicEndpoint(request.getRequestURI())) {
+            logger.debug("Token JWT não encontrado para endpoint protegido: {}", request.getRequestURI());
         }
         
         // Valida o token e configura o contexto de segurança
-        if (username != null) {
+        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             try {
                 UserDetailsImpl userDetails = (UserDetailsImpl) this.userDetailsService.loadUserByUsername(username);
                 
                 if (jwtUtil.validateToken(jwtToken, userDetails)) {
-                    // Token válido - o usuário está autenticado
+                    // Token válido - configura o contexto de segurança
+                    UsernamePasswordAuthenticationToken authToken = 
+                        new UsernamePasswordAuthenticationToken(
+                            userDetails, null, userDetails.getAuthorities());
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                    
                     logger.debug("Token JWT válido para usuário: {}", username);
-                    // Nota: Configuração do SecurityContext pode ser adicionada aqui se necessário
                 }
             } catch (Exception e) {
                 logger.error("Erro ao validar token JWT", e);
@@ -138,5 +147,22 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         
         // Continua a cadeia de filtros
         filterChain.doFilter(request, response);
+    }
+    
+    /**
+     * Verifica se o endpoint é público.
+     * 
+     * @param path caminho da requisição
+     * @return true se for endpoint público
+     */
+    private boolean isPublicEndpoint(String path) {
+        return path.startsWith("/api/auth/") || 
+               path.startsWith("/swagger-ui/") ||
+               path.startsWith("/api-docs/") ||
+               path.startsWith("/v3/api-docs/") ||
+               path.equals("/swagger-ui.html") ||
+               path.startsWith("/actuator/health") ||
+               path.equals("/ping") ||
+               path.equals("/error");
     }
 } 

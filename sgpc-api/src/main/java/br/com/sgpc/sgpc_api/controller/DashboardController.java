@@ -34,7 +34,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @RequestMapping("/api/dashboard")
 @CrossOrigin(origins = "*", maxAge = 3600)
 @Tag(name = "Dashboard", description = "Endpoint para dados do dashboard principal")
-@SecurityRequirement(name = "bearerAuth")
+@SecurityRequirement(name = "Bearer Authentication")
 public class DashboardController {
 
     @Autowired

@@ -117,7 +117,7 @@ public class UserController {
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Dados do usuário retornados com sucesso",
-                    content = @Content(schema = @Schema(implementation = UserDto.class))),
+                content = @Content(schema = @Schema(implementation = UserDto.class))),
         @ApiResponse(responseCode = "400", description = "ID inválido",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
                     examples = @ExampleObject(value = "{\"status\":400,\"erro\":\"Dados inválidos\",\"mensagem\":\"ID do usuário deve ser um número positivo\",\"path\":\"/api/users/abc\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
@@ -156,7 +156,7 @@ public class UserController {
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Usuário atualizado com sucesso",
-                    content = @Content(schema = @Schema(implementation = UserDto.class))),
+                content = @Content(schema = @Schema(implementation = UserDto.class))),
         @ApiResponse(responseCode = "400", description = "Dados inválidos",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
                     examples = @ExampleObject(value = "{\"status\":400,\"erro\":\"Dados inválidos\",\"mensagem\":\"Nome completo é obrigatório e deve ter entre 2 e 100 caracteres\",\"path\":\"/api/users/1\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
@@ -182,8 +182,8 @@ public class UserController {
             @PathVariable Long id, 
             @Parameter(description = "Dados atualizados do usuário", required = true) 
             @Valid @RequestBody UserRegistrationDto userDto) {
-        UserDto updatedUser = userService.updateUser(id, userDto);
-        return ResponseEntity.ok(updatedUser);
+            UserDto updatedUser = userService.updateUser(id, userDto);
+            return ResponseEntity.ok(updatedUser);
     }
     
     /**
@@ -220,8 +220,8 @@ public class UserController {
     public ResponseEntity<Void> deactivateUser(
             @Parameter(description = "ID do usuário", required = true, example = "1") 
             @PathVariable Long id) {
-        userService.deactivateUser(id);
-        return ResponseEntity.ok().build();
+            userService.deactivateUser(id);
+            return ResponseEntity.ok().build();
     }
     
     /**
@@ -258,7 +258,7 @@ public class UserController {
     public ResponseEntity<Void> activateUser(
             @Parameter(description = "ID do usuário", required = true, example = "1") 
             @PathVariable Long id) {
-        userService.activateUser(id);
-        return ResponseEntity.ok().build();
+            userService.activateUser(id);
+            return ResponseEntity.ok().build();
     }
 } 

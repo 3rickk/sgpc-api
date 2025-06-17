@@ -38,6 +38,7 @@ public class OpenApiConfig {
     @Bean
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
+                .openapi("3.0.3")
                 .info(new Info()
                         .title("Sistema de Gerenciamento de Projetos de Construção - API")
                         .description("API REST para gerenciamento completo de projetos de construção civil, " +

@@ -92,8 +92,8 @@ public class MaterialRequestController {
     public ResponseEntity<MaterialRequestDetailsDto> createMaterialRequest(
             @Valid @RequestBody @Parameter(description = "Dados da solicitação de material") MaterialRequestCreateDto requestDto,
             @RequestParam @Parameter(description = "ID do usuário solicitante", example = "1") Long requesterId) {
-        MaterialRequestDetailsDto createdRequest = materialRequestService.createMaterialRequest(requestDto, requesterId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdRequest);
+            MaterialRequestDetailsDto createdRequest = materialRequestService.createMaterialRequest(requestDto, requesterId);
+            return ResponseEntity.status(HttpStatus.CREATED).body(createdRequest);
     }
 
     /**
@@ -132,18 +132,18 @@ public class MaterialRequestController {
     public ResponseEntity<List<MaterialRequestSummaryDto>> getAllMaterialRequests(
             @RequestParam(required = false) @Parameter(description = "Status da solicitação", example = "PENDENTE") String status,
             @RequestParam(required = false) @Parameter(description = "ID do projeto", example = "1") Long projectId) {
-        List<MaterialRequestSummaryDto> requests;
-        
-        if (status != null) {
-            RequestStatus requestStatus = RequestStatus.fromString(status);
-            requests = materialRequestService.getMaterialRequestsByStatus(requestStatus);
-        } else if (projectId != null) {
-            requests = materialRequestService.getMaterialRequestsByProject(projectId);
-        } else {
-            requests = materialRequestService.getAllMaterialRequests();
-        }
-        
-        return ResponseEntity.ok(requests);
+            List<MaterialRequestSummaryDto> requests;
+            
+            if (status != null) {
+                RequestStatus requestStatus = RequestStatus.fromString(status);
+                requests = materialRequestService.getMaterialRequestsByStatus(requestStatus);
+            } else if (projectId != null) {
+                requests = materialRequestService.getMaterialRequestsByProject(projectId);
+            } else {
+                requests = materialRequestService.getAllMaterialRequests();
+            }
+            
+            return ResponseEntity.ok(requests);
     }
 
     /**
@@ -224,8 +224,8 @@ public class MaterialRequestController {
     public ResponseEntity<MaterialRequestDetailsDto> approveMaterialRequest(
             @PathVariable @Parameter(description = "ID da solicitação", example = "1") Long id,
             @RequestParam @Parameter(description = "ID do usuário aprovador", example = "1") Long approverId) {
-        MaterialRequestDetailsDto approvedRequest = materialRequestService.approveMaterialRequest(id, approverId);
-        return ResponseEntity.ok(approvedRequest);
+            MaterialRequestDetailsDto approvedRequest = materialRequestService.approveMaterialRequest(id, approverId);
+            return ResponseEntity.ok(approvedRequest);
     }
 
     /**
@@ -269,8 +269,8 @@ public class MaterialRequestController {
             @PathVariable @Parameter(description = "ID da solicitação", example = "1") Long id,
             @RequestParam @Parameter(description = "ID do usuário que rejeitou", example = "1") Long approverId,
             @Valid @RequestBody @Parameter(description = "Dados da rejeição") MaterialRequestApprovalDto approvalDto) {
-        MaterialRequestDetailsDto rejectedRequest = materialRequestService.rejectMaterialRequest(id, approverId, approvalDto);
-        return ResponseEntity.ok(rejectedRequest);
+            MaterialRequestDetailsDto rejectedRequest = materialRequestService.rejectMaterialRequest(id, approverId, approvalDto);
+            return ResponseEntity.ok(rejectedRequest);
     }
 
     /**

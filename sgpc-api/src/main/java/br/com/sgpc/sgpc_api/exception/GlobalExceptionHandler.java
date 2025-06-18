@@ -244,12 +244,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponseDto> handleUserNotInTeamException(
             UserNotInTeamException ex, WebRequest request) {
         ErrorResponseDto error = new ErrorResponseDto(
-                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.NOT_FOUND.value(),
                 "Usuário não está na equipe",
                 ex.getMessage(),
                 request.getDescription(false).replace("uri=", "")
         );
-        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
     }
 
     @ExceptionHandler(InvalidProjectStatusException.class)
@@ -258,6 +258,18 @@ public class GlobalExceptionHandler {
         ErrorResponseDto error = new ErrorResponseDto(
                 HttpStatus.BAD_REQUEST.value(),
                 "Status de projeto inválido",
+                ex.getMessage(),
+                request.getDescription(false).replace("uri=", "")
+        );
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(InvalidDateException.class)
+    public ResponseEntity<ErrorResponseDto> handleInvalidDateException(
+            InvalidDateException ex, WebRequest request) {
+        ErrorResponseDto error = new ErrorResponseDto(
+                HttpStatus.BAD_REQUEST.value(),
+                "Data inválida",
                 ex.getMessage(),
                 request.getDescription(false).replace("uri=", "")
         );

@@ -24,6 +24,7 @@ import br.com.sgpc.sgpc_api.entity.Task;
 import br.com.sgpc.sgpc_api.entity.User;
 import br.com.sgpc.sgpc_api.enums.ProjectStatus;
 import br.com.sgpc.sgpc_api.enums.TaskStatus;
+import br.com.sgpc.sgpc_api.exception.InvalidDateException;
 import br.com.sgpc.sgpc_api.exception.ProjectAlreadyExistsException;
 import br.com.sgpc.sgpc_api.exception.ProjectNotFoundException;
 import br.com.sgpc.sgpc_api.exception.UserAlreadyInTeamException;
@@ -75,6 +76,17 @@ public class ProjectService {
     public ProjectDetailsDto createProject(ProjectCreateDto projectCreateDto) {
         if (projectRepository.existsByName(projectCreateDto.getName())) {
             throw new ProjectAlreadyExistsException("Já existe um projeto cadastrado com o nome: " + projectCreateDto.getName());
+        }
+
+        // Validar data inicial se fornecida - GP-30
+        if (projectCreateDto.getStartDatePlanned() != null && 
+            projectCreateDto.getStartDatePlanned().isBefore(LocalDate.now())) {
+            throw new InvalidDateException("Data inicial planejada não pode ser anterior à data atual");
+        }
+        
+        if (projectCreateDto.getStartDateActual() != null && 
+            projectCreateDto.getStartDateActual().isBefore(LocalDate.now())) {
+            throw new InvalidDateException("Data inicial real não pode ser anterior à data atual");
         }
 
         Project project = new Project();

@@ -469,12 +469,8 @@ public class ProjectController {
         @PathVariable Long projectId, 
         @Parameter(description = "ID do usuário", required = true)
         @PathVariable Long userId) {
-        try {
-            ProjectDetailsDto updatedProject = projectService.removeTeamMember(projectId, userId);
-            return ResponseEntity.ok(updatedProject);
-        } catch (Exception e) {
-            throw new RuntimeException("Erro ao remover membro da equipe: " + e.getMessage());
-        }
+        ProjectDetailsDto updatedProject = projectService.removeTeamMember(projectId, userId);
+        return ResponseEntity.ok(updatedProject);
     }
 
     /**

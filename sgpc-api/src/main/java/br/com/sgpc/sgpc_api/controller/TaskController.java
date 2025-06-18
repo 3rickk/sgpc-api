@@ -758,7 +758,7 @@ public class TaskController {
             @PathVariable Long projectId,
             @Parameter(description = "ID do usuário", required = true)
             @PathVariable Long userId) {
-        List<TaskViewDto> tasks = taskService.getTasksByAssignedUser(userId);
+        List<TaskViewDto> tasks = taskService.getTasksByAssignedUserAndProject(projectId, userId);
         return ResponseEntity.ok(tasks);
     }
 } 

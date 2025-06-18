@@ -109,6 +109,10 @@ public class TaskService {
      */
     @Transactional(readOnly = true)
     public List<TaskViewDto> getTasksByProject(Long projectId) {
+        // Verificar se o projeto existe
+        projectRepository.findById(projectId)
+                .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + projectId + " não foi encontrado"));
+        
         return taskRepository.findByProjectId(projectId).stream()
                 .map(this::convertToViewDto)
                 .collect(Collectors.toList());
@@ -123,6 +127,10 @@ public class TaskService {
      */
     @Transactional(readOnly = true)
     public List<TaskViewDto> getTasksByProjectAndStatus(Long projectId, TaskStatus status) {
+        // Verificar se o projeto existe
+        projectRepository.findById(projectId)
+                .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + projectId + " não foi encontrado"));
+        
         return taskRepository.findByProjectIdAndStatus(projectId, status).stream()
                 .map(this::convertToViewDto)
                 .collect(Collectors.toList());
@@ -154,6 +162,25 @@ public class TaskService {
     }
 
     /**
+     * Obtém tarefas atribuídas a um usuário específico de um projeto.
+     * 
+     * @param projectId ID do projeto
+     * @param userId ID do usuário
+     * @return List<TaskViewDto> lista de tarefas atribuídas ao usuário no projeto
+     */
+    @Transactional(readOnly = true)
+    public List<TaskViewDto> getTasksByAssignedUserAndProject(Long projectId, Long userId) {
+        // Verificar se o projeto existe
+        projectRepository.findById(projectId)
+                .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + projectId + " não foi encontrado"));
+        
+        return taskRepository.findByAssignedUserId(userId).stream()
+                .filter(task -> task.getProject().getId().equals(projectId))
+                .map(this::convertToViewDto)
+                .collect(Collectors.toList());
+    }
+
+    /**
      * Obtém tarefas atrasadas de um projeto.
      * 
      * Retorna tarefas que têm data de conclusão planejada anterior
@@ -164,6 +191,10 @@ public class TaskService {
      */
     @Transactional(readOnly = true)
     public List<TaskViewDto> getOverdueTasksByProject(Long projectId) {
+        // Verificar se o projeto existe
+        projectRepository.findById(projectId)
+                .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + projectId + " não foi encontrado"));
+        
         return taskRepository.findOverdueTasksByProject(projectId, LocalDate.now()).stream()
                 .map(this::convertToViewDto)
                 .collect(Collectors.toList());
@@ -318,6 +349,10 @@ public class TaskService {
      */
     @Transactional(readOnly = true)
     public TaskStatisticsDto getProjectTaskStatistics(Long projectId) {
+        // Verificar se o projeto existe
+        projectRepository.findById(projectId)
+                .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + projectId + " não foi encontrado"));
+        
         TaskStatisticsDto statistics = new TaskStatisticsDto();
         
         statistics.setTotalTasks(countTasksByProjectAndStatus(projectId, null));

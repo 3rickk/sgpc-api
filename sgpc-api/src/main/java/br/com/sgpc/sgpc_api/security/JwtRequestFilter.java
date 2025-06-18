@@ -6,6 +6,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.NonNull;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -13,6 +17,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
+import java.util.stream.Collectors;
 
 /**
  * Filtro de interceptação de requisições para validação de tokens JWT.
@@ -37,7 +43,7 @@ import jakarta.servlet.http.HttpServletResponse;
  * - Extends OncePerRequestFilter para garantir execução única
  * - Tratamento de exceções com logs detalhados
  * - Validação completa de token e usuário
- * - Integração com Spring Security
+ * - Integração completa com Spring Security
  * 
  * @author Sistema SGPC
  * @version 1.0
@@ -114,25 +120,36 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                 try {
                     username = jwtUtil.extractUsername(jwtToken);
                 } catch (Exception e) {
-                    logger.error("Não foi possível extrair o username do token JWT", e);
+                    logger.error("Não foi possível extrair o username do token JWT: {}", e.getMessage());
                 }
             }
-        } else {
-            logger.warn("Token JWT não encontrado ou não começa com Bearer");
+        } else if (requestTokenHeader != null) {
+            logger.warn("Token JWT não começa com Bearer String");
         }
         
         // Valida o token e configura o contexto de segurança
-        if (username != null) {
+        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             try {
-                UserDetailsImpl userDetails = (UserDetailsImpl) this.userDetailsService.loadUserByUsername(username);
+                UserDetailsImpl userDetails = this.userDetailsService.loadUserByUsername(username);
                 
                 if (jwtUtil.validateToken(jwtToken, userDetails)) {
-                    // Token válido - o usuário está autenticado
+                    // Token válido - configura o contexto de segurança
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                        userDetails, 
+                        null, 
+                        userDetails.getAuthorities().stream()
+                            .map(SimpleGrantedAuthority::new)
+                            .collect(Collectors.toList())
+                    );
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                    
                     logger.debug("Token JWT válido para usuário: {}", username);
-                    // Nota: Configuração do SecurityContext pode ser adicionada aqui se necessário
+                } else {
+                    logger.warn("Token JWT inválido para usuário: {}", username);
                 }
             } catch (Exception e) {
-                logger.error("Erro ao validar token JWT", e);
+                logger.error("Erro ao validar token JWT para usuário {}: {}", username, e.getMessage());
             }
         }
         

@@ -1,5 +1,8 @@
 package br.com.sgpc.sgpc_api.exception;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -28,14 +31,10 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(InvalidCredentialsException.class)
-    public ResponseEntity<ErrorResponseDto> handleInvalidCredentialsException(
+    public ResponseEntity<Map<String, String>> handleInvalidCredentialsException(
             InvalidCredentialsException ex, WebRequest request) {
-        ErrorResponseDto error = new ErrorResponseDto(
-                HttpStatus.UNAUTHORIZED.value(),
-                "Credenciais inválidas",
-                ex.getMessage(),
-                request.getDescription(false).replace("uri=", "")
-        );
+        Map<String, String> error = new HashMap<>();
+        error.put("error", "Credenciais inválidas");
         return new ResponseEntity<>(error, HttpStatus.UNAUTHORIZED);
     }
 
@@ -43,12 +42,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponseDto> handleUserInactiveException(
             UserInactiveException ex, WebRequest request) {
         ErrorResponseDto error = new ErrorResponseDto(
-                HttpStatus.FORBIDDEN.value(),
+                HttpStatus.UNAUTHORIZED.value(),
                 "Conta inativa",
                 ex.getMessage(),
                 request.getDescription(false).replace("uri=", "")
         );
-        return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);
+        return new ResponseEntity<>(error, HttpStatus.UNAUTHORIZED);
     }
 
     @ExceptionHandler(EmailAlreadyExistsException.class)
@@ -64,27 +63,19 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(InvalidTokenException.class)
-    public ResponseEntity<ErrorResponseDto> handleInvalidTokenException(
+    public ResponseEntity<Map<String, String>> handleInvalidTokenException(
             InvalidTokenException ex, WebRequest request) {
-        ErrorResponseDto error = new ErrorResponseDto(
-                HttpStatus.BAD_REQUEST.value(),
-                "Token inválido",
-                ex.getMessage(),
-                request.getDescription(false).replace("uri=", "")
-        );
+        Map<String, String> error = new HashMap<>();
+        error.put("error", "Token de redefinição inválido ou expirado.");
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(ExpiredTokenException.class)
-    public ResponseEntity<ErrorResponseDto> handleExpiredTokenException(
+    public ResponseEntity<Map<String, String>> handleExpiredTokenException(
             ExpiredTokenException ex, WebRequest request) {
-        ErrorResponseDto error = new ErrorResponseDto(
-                HttpStatus.UNAUTHORIZED.value(),
-                "Token expirado",
-                ex.getMessage(),
-                request.getDescription(false).replace("uri=", "")
-        );
-        return new ResponseEntity<>(error, HttpStatus.UNAUTHORIZED);
+        Map<String, String> error = new HashMap<>();
+        error.put("error", "Token de redefinição inválido ou expirado.");
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
     // Exceções para gerenciamento de custos e recursos

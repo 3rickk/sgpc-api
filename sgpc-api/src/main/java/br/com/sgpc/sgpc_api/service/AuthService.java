@@ -15,7 +15,6 @@ import br.com.sgpc.sgpc_api.entity.Role;
 import br.com.sgpc.sgpc_api.entity.User;
 import br.com.sgpc.sgpc_api.exception.InvalidCredentialsException;
 import br.com.sgpc.sgpc_api.exception.UserInactiveException;
-import br.com.sgpc.sgpc_api.exception.UserNotFoundException;
 import br.com.sgpc.sgpc_api.repository.UserRepository;
 import br.com.sgpc.sgpc_api.security.JwtUtil;
 import br.com.sgpc.sgpc_api.security.UserDetailsImpl;
@@ -60,17 +59,16 @@ public class AuthService {
      * 
      * @param loginRequest dados de login (email e senha)
      * @return JwtResponseDto com token e informações do usuário
-     * @throws UserNotFoundException se usuário não encontrado
-     * @throws InvalidCredentialsException se senha inválida
+     * @throws InvalidCredentialsException se credenciais inválidas (email não encontrado ou senha incorreta)
      * @throws UserInactiveException se usuário inativo
      */
     public JwtResponseDto authenticateUser(LoginRequestDto loginRequest) {
         User user = userRepository.findByEmailWithRoles(loginRequest.getEmail())
-                .orElseThrow(() -> new UserNotFoundException("Email não encontrado no sistema"));
+                .orElse(null);
         
-        // Verificar senha
-        if (!isPasswordValid(loginRequest.getPassword(), user.getPasswordHash())) {
-            throw new InvalidCredentialsException("Senha incorreta");
+        // Se usuário não encontrado ou senha inválida, lança mesma exceção
+        if (user == null || !isPasswordValid(loginRequest.getPassword(), user.getPasswordHash())) {
+            throw new InvalidCredentialsException("Credenciais inválidas");
         }
         
         if (!user.getIsActive()) {

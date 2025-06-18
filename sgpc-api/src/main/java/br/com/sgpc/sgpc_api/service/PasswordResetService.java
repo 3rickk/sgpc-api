@@ -14,7 +14,6 @@ import br.com.sgpc.sgpc_api.entity.PasswordResetToken;
 import br.com.sgpc.sgpc_api.entity.User;
 import br.com.sgpc.sgpc_api.exception.ExpiredTokenException;
 import br.com.sgpc.sgpc_api.exception.InvalidTokenException;
-import br.com.sgpc.sgpc_api.exception.UserNotFoundException;
 import br.com.sgpc.sgpc_api.repository.PasswordResetTokenRepository;
 import br.com.sgpc.sgpc_api.repository.UserRepository;
 
@@ -27,6 +26,7 @@ import br.com.sgpc.sgpc_api.repository.UserRepository;
  * 
  * Funcionalidades principais:
  * - Geração de tokens únicos de recuperação
+ * - Envio de email com token de recuperação
  * - Validação e expiração de tokens (24 horas)
  * - Redefinição segura de senhas
  * - Limpeza automática de tokens expirados
@@ -37,6 +37,7 @@ import br.com.sgpc.sgpc_api.repository.UserRepository;
  * - Expiração automática em 24 horas
  * - Invalidação após uso único
  * - Remoção de tokens antigos do usuário
+ * - Não vaza informação sobre existência de emails
  * 
  * @author Sistema SGPC
  * @version 1.0
@@ -52,22 +53,30 @@ public class PasswordResetService {
     @Autowired
     private PasswordResetTokenRepository passwordResetTokenRepository;
     
+    @Autowired
+    private NotificationService notificationService;
+    
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     
     /**
-     * Gera um token de redefinição de senha para o usuário.
+     * Gera um token de redefinição de senha e envia por email.
      * 
-     * Este método busca o usuário pelo email, remove tokens anteriores
-     * para evitar acúmulo, gera um novo token único com UUID e
-     * configura expiração para 24 horas.
+     * Este método busca o usuário pelo email. Se encontrado, remove tokens anteriores
+     * para evitar acúmulo, gera um novo token único com UUID,
+     * configura expiração para 24 horas e envia por email. Se não encontrado, retorna um token
+     * simulado para evitar enumeração de usuários (não funcional).
      * 
      * @param request dados da solicitação contendo email do usuário
-     * @return String token gerado para redefinição
-     * @throws UserNotFoundException se o usuário não for encontrado
+     * @return String token gerado para redefinição (ou simulado se usuário não existir)
      */
     public String generatePasswordResetToken(PasswordResetRequestDto request) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new UserNotFoundException("Email não encontrado no sistema"));
+                .orElse(null);
+        
+        // Se usuário não encontrado, retorna token simulado para evitar enumeração
+        if (user == null) {
+            return UUID.randomUUID().toString(); // Token simulado, não funcional
+        }
         
         // Remove tokens antigos do usuário para evitar acúmulo
         passwordResetTokenRepository.deleteByUser_Id(user.getId());
@@ -83,8 +92,8 @@ public class PasswordResetService {
         
         passwordResetTokenRepository.save(resetToken);
         
-        // NOTA: Em produção, deve ser implementado envio por email
-        // emailService.sendPasswordResetEmail(user.getEmail(), token);
+        // Envia email com token de recuperação
+        notificationService.sendPasswordResetEmail(user.getEmail(), token);
         
         // Por simplicidade no desenvolvimento, retornamos o token
         return token;

@@ -2,6 +2,7 @@ package br.com.sgpc.sgpc_api.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -36,10 +37,12 @@ public class PasswordResetDto {
     private String token;
     
     @NotBlank(message = "Nova senha é obrigatória")
-    @Size(min = 6, message = "Senha deve ter pelo menos 6 caracteres")
+    @Size(min = 8, message = "Senha deve ter pelo menos 8 caracteres")
+    @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).*$", 
+             message = "Senha deve conter pelo menos uma letra minúscula, uma maiúscula e um número")
     @Schema(description = "Nova senha do usuário", 
-            example = "novaSenha123",
-            minLength = 6,
+            example = "MinhaNovaSenh@123",
+            minLength = 8,
             requiredMode = Schema.RequiredMode.REQUIRED)
     private String newPassword;
 } 

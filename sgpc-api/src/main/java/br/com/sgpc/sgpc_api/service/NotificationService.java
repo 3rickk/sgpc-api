@@ -50,7 +50,7 @@ public class NotificationService {
     @Autowired
     private JavaMailSender emailSender;
 
-    @Value("${spring.mail.username:sgpc@system.com}")
+    @Value("${app.mail.from:noreply@sgpc.com}")
     private String fromEmail;
 
     @Value("${app.notification.enabled:true}")
@@ -216,6 +216,35 @@ public class NotificationService {
         );
 
         sendEmail(projectManager.getEmail(), subject, message);
+    }
+
+    /**
+     * Envia email com token de recuperação de senha.
+     * 
+     * Envia email com instruções e token para redefinição de senha.
+     * 
+     * @param email endereço de email do usuário
+     * @param token token de recuperação gerado
+     */
+    @Async
+    public void sendPasswordResetEmail(String email, String token) {
+        if (!notificationEnabled) {
+            logger.info("Notificações desabilitadas");
+            return;
+        }
+
+        String subject = "Recuperação de Senha - SGPC";
+        String message = String.format(
+            "Você solicitou a recuperação de sua senha.\n\n" +
+            "Use o token abaixo para redefinir sua senha:\n\n" +
+            "Token: %s\n\n" +
+            "Este token é válido por 24 horas.\n\n" +
+            "Se você não solicitou esta recuperação, ignore este email.\n\n" +
+            "Equipe SGPC",
+            token
+        );
+
+        sendEmail(email, subject, message);
     }
 
     /**

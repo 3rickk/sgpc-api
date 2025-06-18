@@ -1,6 +1,10 @@
 package br.com.sgpc.sgpc_api.controller;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -89,12 +93,11 @@ public class AuthController {
         ),
         @ApiResponse(
             responseCode = "401", 
-            description = "Credenciais incorretas",
+            description = "Credenciais inválidas (email não encontrado ou senha incorreta)",
             content = @Content(
                 mediaType = "application/json",
-                schema = @Schema(implementation = ErrorResponseDto.class),
                 examples = @ExampleObject(
-                    value = "{ \"status\": 401, \"erro\": \"Credenciais inválidas\", \"mensagem\": \"Senha incorreta\", \"path\": \"/api/auth/login\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                    value = "{ \"error\": \"Credenciais inválidas\" }"
                 )
             )
         ),
@@ -106,17 +109,6 @@ public class AuthController {
                 schema = @Schema(implementation = ErrorResponseDto.class),
                 examples = @ExampleObject(
                     value = "{ \"status\": 403, \"erro\": \"Conta inativa\", \"mensagem\": \"Conta desativada. Entre em contato com o administrador\", \"path\": \"/api/auth/login\", \"timestamp\": \"2024-01-01T10:00:00\" }"
-                )
-            )
-        ),
-        @ApiResponse(
-            responseCode = "404", 
-            description = "Email não encontrado",
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(implementation = ErrorResponseDto.class),
-                examples = @ExampleObject(
-                    value = "{ \"status\": 404, \"erro\": \"Usuário não encontrado\", \"mensagem\": \"Email não encontrado no sistema\", \"path\": \"/api/auth/login\", \"timestamp\": \"2024-01-01T10:00:00\" }"
                 )
             )
         )
@@ -145,7 +137,7 @@ public class AuthController {
     )
     @ApiResponses(value = {
         @ApiResponse(
-            responseCode = "200", 
+            responseCode = "201", 
             description = "Usuário registrado com sucesso",
             content = @Content(
                 mediaType = "application/json",
@@ -182,7 +174,7 @@ public class AuthController {
         @Parameter(description = "Dados para registro do novo usuário", required = true)
         @Valid @RequestBody UserRegistrationDto signUpRequest) {
         UserDto user = authService.registerUser(signUpRequest);
-        return ResponseEntity.ok(user);
+        return ResponseEntity.status(HttpStatus.CREATED).body(user);
     }
     
     /**
@@ -203,7 +195,7 @@ public class AuthController {
     @ApiResponses(value = {
         @ApiResponse(
             responseCode = "200", 
-            description = "Token de recuperação gerado com sucesso",
+            description = "Solicitação processada com sucesso (sempre retorna 200 para evitar enumeração de usuários)",
             content = @Content(
                 mediaType = "text/plain",
                 examples = @ExampleObject(
@@ -219,17 +211,6 @@ public class AuthController {
                 schema = @Schema(implementation = ErrorResponseDto.class),
                 examples = @ExampleObject(
                     value = "{ \"status\": 400, \"erro\": \"Dados inválidos\", \"mensagem\": \"email: não deve estar vazio\", \"path\": \"/api/auth/forgot-password\", \"timestamp\": \"2024-01-01T10:00:00\" }"
-                )
-            )
-        ),
-        @ApiResponse(
-            responseCode = "404", 
-            description = "Email não encontrado",
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(implementation = ErrorResponseDto.class),
-                examples = @ExampleObject(
-                    value = "{ \"status\": 404, \"erro\": \"Usuário não encontrado\", \"mensagem\": \"Email não encontrado no sistema\", \"path\": \"/api/auth/forgot-password\", \"timestamp\": \"2024-01-01T10:00:00\" }"
                 )
             )
         )
@@ -258,39 +239,29 @@ public class AuthController {
     @ApiResponses(value = {
         @ApiResponse(
             responseCode = "200", 
-            description = "Senha alterada com sucesso",
+            description = "Senha redefinida com sucesso",
             content = @Content(
-                mediaType = "text/plain",
-                examples = @ExampleObject(value = "Senha alterada com sucesso!")
+                mediaType = "application/json",
+                examples = @ExampleObject(value = "{ \"message\": \"Senha redefinida com sucesso.\" }")
             )
         ),
         @ApiResponse(
             responseCode = "400", 
-            description = "Dados inválidos ou token inválido",
+            description = "Token inválido, expirado ou senha não atende aos critérios",
             content = @Content(
                 mediaType = "application/json",
-                schema = @Schema(implementation = ErrorResponseDto.class),
                 examples = @ExampleObject(
-                    value = "{ \"status\": 400, \"erro\": \"Token inválido\", \"mensagem\": \"Token de recuperação inválido\", \"path\": \"/api/auth/reset-password\", \"timestamp\": \"2024-01-01T10:00:00\" }"
-                )
-            )
-        ),
-        @ApiResponse(
-            responseCode = "401", 
-            description = "Token expirado",
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(implementation = ErrorResponseDto.class),
-                examples = @ExampleObject(
-                    value = "{ \"status\": 401, \"erro\": \"Token expirado\", \"mensagem\": \"Token de recuperação expirado. Solicite um novo token\", \"path\": \"/api/auth/reset-password\", \"timestamp\": \"2024-01-01T10:00:00\" }"
+                    value = "{ \"error\": \"Token de redefinição inválido ou expirado.\" }"
                 )
             )
         )
     })
-    public ResponseEntity<String> resetPassword(
+    public ResponseEntity<Map<String, String>> resetPassword(
         @Parameter(description = "Dados para redefinição da senha", required = true)
         @Valid @RequestBody PasswordResetDto resetDto) {
         passwordResetService.resetPassword(resetDto);
-        return ResponseEntity.ok("Senha alterada com sucesso!");
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Senha redefinida com sucesso.");
+        return ResponseEntity.ok(response);
     }
 } 

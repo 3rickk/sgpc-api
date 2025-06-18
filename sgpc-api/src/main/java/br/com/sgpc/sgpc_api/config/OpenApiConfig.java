@@ -56,7 +56,7 @@ public class OpenApiConfig {
                                 .url("https://sgpc-api.koyeb.app")
                                 .description("Servidor de Produção (Koyeb)"),
                         new Server()
-                                .url("http://localhost:8000")
+                                .url("http://localhost:8080")
                                 .description("Servidor de Desenvolvimento Local")
                 ))
                 .addSecurityItem(new SecurityRequirement()

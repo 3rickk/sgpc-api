@@ -1,28 +1,44 @@
 package br.com.sgpc.sgpc_api.config;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.http.MediaType;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Arrays;
+import java.util.Date;
+import java.util.Map;
+import java.util.HashMap;
+
+import br.com.sgpc.sgpc_api.security.JwtRequestFilter;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * Configuração de segurança da aplicação SGPC.
  * 
  * Esta classe centraliza as configurações relacionadas à segurança
- * da aplicação, incluindo codificação de senhas e outras configurações
- * de segurança necessárias para o funcionamento do sistema.
+ * da aplicação, incluindo codificação de senhas, filtros JWT e
+ * configurações de autorização para proteger os endpoints da API.
  * 
  * Configuração para API REST:
  * - Desabilita form login (tela de login HTML)
  * - Desabilita autenticação HTTP Basic
  * - Configura para JWT stateless
  * - Permite acesso livre aos endpoints de auth e documentação
+ * - Protege todos os demais endpoints com JWT
  * 
  * @author Sistema SGPC
  * @version 1.0
@@ -32,24 +48,17 @@ import java.util.Arrays;
 @EnableWebSecurity
 public class SecurityConfig {
     
+    @Autowired
+    private JwtRequestFilter jwtRequestFilter;
+    
     /**
-     * Bean de codificação de senhas.
+     * Bean de codificação de senhas usando BCrypt.
      * 
-     * IMPORTANTE: Esta é uma implementação temporária e simplificada.
-     * Em ambiente de produção, deve retornar uma instância real de
-     * PasswordEncoder como BCryptPasswordEncoder.
-     * 
-     * Implementação recomendada para produção:
-     * {@code return new BCryptPasswordEncoder(12);}
-     * 
-     * @return String placeholder para codificador de senhas
-     * @deprecated Implementação temporária - substituir por PasswordEncoder real
+     * @return PasswordEncoder configurado com BCrypt
      */
     @Bean
-    public String passwordEncoder() {
-        // Simplificado - retorna uma string dummy
-        // TODO: Substituir por new BCryptPasswordEncoder(12) em produção
-        return "bcrypt-encoder";
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder(12);
     }
     
     /**
@@ -57,6 +66,8 @@ public class SecurityConfig {
      * 
      * Remove a tela de login padrão e configura a aplicação
      * para funcionar como uma API pura com autenticação JWT.
+     * Protege todos os endpoints exceto os de autenticação,
+     * documentação e health check.
      * 
      * @param http configuração de segurança HTTP
      * @return SecurityFilterChain configurado para API
@@ -83,8 +94,11 @@ public class SecurityConfig {
                 // Permite acesso ao endpoint de health check
                 .requestMatchers("/actuator/health").permitAll()
                 
-                // Outras requisições não precisam de autenticação por enquanto
-                .anyRequest().permitAll()
+                // Permite acesso aos recursos estáticos
+                .requestMatchers("/error").permitAll()
+                
+                // TODOS OS DEMAIS ENDPOINTS REQUEREM AUTENTICAÇÃO
+                .anyRequest().authenticated()
             )
             
             // Desabilita form login (remove a tela de login HTML)
@@ -96,7 +110,15 @@ public class SecurityConfig {
             // Configura sessão como stateless (para APIs REST com JWT)
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-            );
+            )
+            
+            // Configura o ponto de entrada para requisições não autenticadas
+            .exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint(authenticationEntryPoint())
+            )
+            
+            // Adiciona o filtro JWT antes do filtro de autenticação padrão
+            .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
             
         return http.build();
     }
@@ -129,5 +151,29 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", configuration);
         
         return source;
+    }
+
+    /**
+     * Configura o ponto de entrada para requisições não autenticadas.
+     * 
+     * @return AuthenticationEntryPoint customizado
+     */
+    @Bean
+    public AuthenticationEntryPoint authenticationEntryPoint() {
+        return (HttpServletRequest request, HttpServletResponse response, 
+                org.springframework.security.core.AuthenticationException authException) -> {
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            
+            Map<String, Object> body = new HashMap<>();
+            body.put("status", 401);
+            body.put("error", "Não autorizado");
+            body.put("message", "Token JWT requerido para acessar este endpoint");
+            body.put("path", request.getRequestURI());
+            body.put("timestamp", new Date());
+            
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.writeValue(response.getOutputStream(), body);
+        };
     }
 } 

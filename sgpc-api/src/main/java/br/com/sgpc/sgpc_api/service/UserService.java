@@ -135,7 +135,7 @@ public class UserService {
      * @return Optional<UserDto> usuário encontrado ou empty
      */
     public Optional<UserDto> getUserById(Long id) {
-        return userRepository.findById(id)
+        return userRepository.findByIdWithRoles(id)
                 .map(this::convertToDto);
     }
     
@@ -155,6 +155,7 @@ public class UserService {
      * 
      * Permite atualizar nome, telefone, valor da hora e opcionalmente
      * a senha. O email não pode ser alterado após criação.
+     * Os roles são preservados se não forem enviados novos.
      * 
      * @param id ID do usuário a ser atualizado
      * @param userRegistrationDto novos dados do usuário
@@ -162,7 +163,7 @@ public class UserService {
      * @throws UserNotFoundException se o usuário não for encontrado
      */
     public UserDto updateUser(Long id, UserRegistrationDto userRegistrationDto) {
-        User user = userRepository.findById(id)
+        User user = userRepository.findByIdWithRoles(id)
                 .orElseThrow(() -> new UserNotFoundException("Usuário com ID " + id + " não foi encontrado"));
         
         user.setFullName(userRegistrationDto.getFullName());
@@ -172,6 +173,25 @@ public class UserService {
         if (userRegistrationDto.getPassword() != null && !userRegistrationDto.getPassword().isEmpty()) {
             user.setPasswordHash(hashPassword(userRegistrationDto.getPassword()));
         }
+        
+        // Atualizar roles se fornecidos, caso contrário preservar os existentes
+        if (userRegistrationDto.getRoleNames() != null && !userRegistrationDto.getRoleNames().isEmpty()) {
+            // Remover todos os relacionamentos user-role existentes via query nativa
+            userRepository.removeAllUserRoles(user.getId());
+            
+            // Limpar roles do objeto para manter sincronização
+            user.getRoles().clear();
+            
+            // Adicionar novos roles
+            Set<Role> newRoles = new HashSet<>();
+            for (String roleName : userRegistrationDto.getRoleNames()) {
+                Role role = roleRepository.findByName(roleName)
+                        .orElseThrow(() -> new RuntimeException("Perfil não encontrado: " + roleName));
+                newRoles.add(role);
+            }
+            user.setRoles(newRoles);
+        }
+        // Se roleNames for null ou vazio, os roles existentes são preservados automaticamente
         
         User savedUser = userRepository.save(user);
         return convertToDto(savedUser);

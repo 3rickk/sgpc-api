@@ -3,6 +3,7 @@ package br.com.sgpc.sgpc_api.repository;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
@@ -74,6 +75,30 @@ public interface UserRepository extends JpaRepository<User, Long> {
      */
     @Query("SELECT u FROM User u JOIN FETCH u.roles WHERE u.email = :email")
     Optional<User> findByEmailWithRoles(String email);
+    
+    /**
+     * Busca um usuário por ID com roles carregados.
+     * 
+     * Versão otimizada que utiliza JOIN FETCH para carregar
+     * os roles do usuário em uma única query, evitando o
+     * problema N+1. Usado para operações que precisam dos roles.
+     * 
+     * @param id ID do usuário
+     * @return Optional<User> usuário com roles carregados
+     */
+    @Query("SELECT u FROM User u JOIN FETCH u.roles WHERE u.id = :id")
+    Optional<User> findByIdWithRoles(Long id);
+    
+    /**
+     * Remove todos os roles de um usuário.
+     * 
+     * Usado para atualização de roles sem conflitos de chave primária.
+     * 
+     * @param userId ID do usuário
+     */
+    @Modifying
+    @Query(value = "DELETE FROM user_roles WHERE user_id = :userId", nativeQuery = true)
+    void removeAllUserRoles(Long userId);
     
     /**
      * Busca todos os usuários ativos.

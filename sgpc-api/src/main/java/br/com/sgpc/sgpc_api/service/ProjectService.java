@@ -89,6 +89,19 @@ public class ProjectService {
             throw new InvalidDateException("Data inicial real não pode ser anterior à data atual");
         }
 
+        // Validar se data final não é anterior à data inicial - GP-30
+        if (projectCreateDto.getStartDatePlanned() != null && 
+            projectCreateDto.getEndDatePlanned() != null && 
+            projectCreateDto.getEndDatePlanned().isBefore(projectCreateDto.getStartDatePlanned())) {
+            throw new InvalidDateException("Data final planejada não pode ser anterior à data inicial planejada");
+        }
+        
+        if (projectCreateDto.getStartDateActual() != null && 
+            projectCreateDto.getEndDateActual() != null && 
+            projectCreateDto.getEndDateActual().isBefore(projectCreateDto.getStartDateActual())) {
+            throw new InvalidDateException("Data final real não pode ser anterior à data inicial real");
+        }
+
         Project project = new Project();
         project.setName(projectCreateDto.getName());
         project.setDescription(projectCreateDto.getDescription());

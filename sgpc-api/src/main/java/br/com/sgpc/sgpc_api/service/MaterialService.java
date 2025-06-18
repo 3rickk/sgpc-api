@@ -279,6 +279,11 @@ public class MaterialService {
         Material material = materialRepository.findByIdAndIsActiveTrue(id)
                 .orElseThrow(() -> new MaterialNotFoundException("Material com ID " + id + " não foi encontrado"));
 
+        // Validar se a quantidade é positiva
+        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Quantidade deve ser maior que zero");
+        }
+
         material.addStock(quantity);
         Material savedMaterial = materialRepository.save(material);
         return convertToDto(savedMaterial);

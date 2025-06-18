@@ -77,7 +77,8 @@ public class MaterialRequestService {
      * @param requestDto dados da solicitação com lista de materiais
      * @param requesterId ID do usuário que está fazendo a solicitação
      * @return MaterialRequestDetailsDto solicitação criada com detalhes completos
-     * @throws RuntimeException se usuário, projeto ou material não for encontrado
+     * @throws RuntimeException se usuário ou material não for encontrado
+     * @throws ProjectNotFoundException se projeto não for encontrado
      */
     public MaterialRequestDetailsDto createMaterialRequest(MaterialRequestCreateDto requestDto, Long requesterId) {
         // Obter usuário solicitante
@@ -86,7 +87,7 @@ public class MaterialRequestService {
 
         // Validar projeto
         Project project = projectRepository.findById(requestDto.getProjectId())
-                .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
+                .orElseThrow(() -> new br.com.sgpc.sgpc_api.exception.ProjectNotFoundException("Projeto com ID " + requestDto.getProjectId() + " não foi encontrado"));
 
         // Criar requisição
         MaterialRequest materialRequest = new MaterialRequest();

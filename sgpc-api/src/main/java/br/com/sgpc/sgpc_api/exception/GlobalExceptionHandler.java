@@ -332,13 +332,38 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ErrorResponseDto> handleRuntimeException(
             RuntimeException ex, WebRequest request) {
-        ErrorResponseDto error = new ErrorResponseDto(
-                HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                "Erro interno do servidor",
-                "Ocorreu um erro inesperado. Tente novamente mais tarde",
+        String message = ex.getMessage();
+        HttpStatus status;
+        String error;
+        
+        if (message != null) {
+            if (message.contains("não encontrada") || message.contains("não encontrado")) {
+                status = HttpStatus.NOT_FOUND;
+                error = "Recurso não encontrado";
+            } else if (message.contains("não pode ser aprovada") || message.contains("não está pendente")) {
+                status = HttpStatus.BAD_REQUEST;
+                error = "Operação inválida";
+            } else if (message.contains("Estoque insuficiente")) {
+                status = HttpStatus.BAD_REQUEST;
+                error = "Estoque insuficiente";
+            } else {
+                status = HttpStatus.INTERNAL_SERVER_ERROR;
+                error = "Erro interno do servidor";
+                message = "Ocorreu um erro inesperado. Tente novamente mais tarde";
+            }
+        } else {
+            status = HttpStatus.INTERNAL_SERVER_ERROR;
+            error = "Erro interno do servidor";
+            message = "Ocorreu um erro inesperado. Tente novamente mais tarde";
+        }
+        
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                status.value(),
+                error,
+                message,
                 request.getDescription(false).replace("uri=", "")
         );
-        return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+        return new ResponseEntity<>(errorResponse, status);
     }
 
     @ExceptionHandler(Exception.class)

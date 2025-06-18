@@ -224,8 +224,21 @@ public class MaterialRequestController {
     public ResponseEntity<MaterialRequestDetailsDto> approveMaterialRequest(
             @PathVariable @Parameter(description = "ID da solicitação", example = "1") Long id,
             @RequestParam @Parameter(description = "ID do usuário aprovador", example = "1") Long approverId) {
+        try {
             MaterialRequestDetailsDto approvedRequest = materialRequestService.approveMaterialRequest(id, approverId);
             return ResponseEntity.ok(approvedRequest);
+        } catch (RuntimeException ex) {
+            String message = ex.getMessage();
+            if (message.contains("não encontrada") || message.contains("não encontrado")) {
+                throw new RuntimeException("Solicitação ou usuário não encontrado: " + message);
+            } else if (message.contains("não está pendente")) {
+                throw new RuntimeException("Solicitação não pode ser aprovada: " + message);
+            } else if (message.contains("Estoque insuficiente")) {
+                throw new RuntimeException("Estoque insuficiente: " + message);
+            } else {
+                throw new RuntimeException("Erro interno do servidor: " + message);
+            }
+        }
     }
 
     /**

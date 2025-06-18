@@ -70,7 +70,7 @@ cd sgpc-api
 ./mvnw spring-boot:run
 ```
 
-A aplicação estará disponível em: **http://localhost:8000**
+A aplicação estará disponível em: **http://localhost:8080**
 
 ## 📚 Documentação da API
 
@@ -176,7 +176,7 @@ Authorization: Bearer {seu-token-jwt}
 ## 🧪 Testes
 
 ### Testando com Swagger UI
-1. Acesse http://localhost:8000/swagger-ui.html
+1. Acesse http://localhost:8080/swagger-ui.html
 2. Clique em "Authorize" no topo da página
 3. Faça login usando o endpoint `/api/auth/login`
 4. Copie o token retornado
@@ -249,7 +249,7 @@ export MAIL_PASSWORD="sua-app-password"
 
 4. **Erro de CORS**
    - Configurado para aceitar requests de qualquer origem
-   - Verifique se está usando a porta correta (8000)
+   - Verifique se está usando a porta correta (8080)
 
 ## 📄 Licença
 

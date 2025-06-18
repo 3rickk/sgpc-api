@@ -146,4 +146,13 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
      * @return boolean true se já existe um projeto com esse nome
      */
     boolean existsByName(String name);
+
+    /**
+     * Conta o número de membros na equipe de um projeto específico.
+     * 
+     * @param projectId ID do projeto
+     * @return número de membros na equipe
+     */
+    @Query(value = "SELECT COUNT(*) FROM project_members WHERE project_id = :projectId", nativeQuery = true)
+    Long countTeamMembersByProjectId(@Param("projectId") Long projectId);
 } 

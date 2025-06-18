@@ -485,12 +485,9 @@ public class ProjectService {
             dto.setProgressPercentage(0);
         }
 
-        // Calcular tamanho da equipe
-        if (project.getTeamMembers() != null) {
-            dto.setTeamSize(project.getTeamMembers().size());
-        } else {
-            dto.setTeamSize(0);
-        }
+        // Calcular tamanho da equipe usando query específica para evitar lazy loading
+        Long teamSize = projectRepository.countTeamMembersByProjectId(project.getId());
+        dto.setTeamSize(teamSize != null ? teamSize.intValue() : 0);
 
         return dto;
     }

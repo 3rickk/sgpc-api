@@ -279,7 +279,7 @@ public class TaskController {
             @PathVariable Long projectId, 
             @Parameter(description = "ID da tarefa", required = true)
             @PathVariable Long taskId) {
-            taskService.deleteTask(taskId);
+            taskService.deleteTask(projectId, taskId);
             return ResponseEntity.noContent().build();
     }
 

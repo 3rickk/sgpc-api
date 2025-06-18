@@ -208,4 +208,17 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
      * @return boolean true se já existe uma tarefa com esse título
      */
     boolean existsByProjectIdAndTitle(@Param("projectId") Long projectId, @Param("title") String title);
+
+    /**
+     * Busca uma tarefa por ID apenas se ela pertencer ao projeto especificado.
+     * 
+     * Usado para validação de segurança e garantir que operações em tarefas
+     * só sejam executadas quando a tarefa pertence ao projeto correto.
+     * 
+     * @param projectId ID do projeto
+     * @param taskId ID da tarefa
+     * @return Optional<Task> tarefa se existir e pertencer ao projeto
+     */
+    @Query("SELECT t FROM Task t WHERE t.id = :taskId AND t.project.id = :projectId")
+    Optional<Task> findByIdAndProjectId(@Param("taskId") Long taskId, @Param("projectId") Long projectId);
 } 

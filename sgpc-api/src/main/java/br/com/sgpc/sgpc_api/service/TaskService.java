@@ -284,12 +284,13 @@ public class TaskService {
     /**
      * Exclui uma tarefa do sistema.
      * 
+     * @param projectId ID do projeto ao qual a tarefa deve pertencer
      * @param taskId ID da tarefa a ser excluída
-     * @throws RuntimeException se tarefa não for encontrada
+     * @throws TaskNotFoundException se tarefa não for encontrada ou não pertencer ao projeto
      */
-    public void deleteTask(Long taskId) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new TaskNotFoundException("Tarefa com ID " + taskId + " não foi encontrada"));
+    public void deleteTask(Long projectId, Long taskId) {
+        Task task = taskRepository.findByIdAndProjectId(taskId, projectId)
+                .orElseThrow(() -> new TaskNotFoundException("Tarefa com ID " + taskId + " não foi encontrada no projeto " + projectId));
         
         taskRepository.delete(task);
     }

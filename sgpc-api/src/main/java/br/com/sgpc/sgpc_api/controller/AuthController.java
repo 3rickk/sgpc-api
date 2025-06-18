@@ -180,17 +180,17 @@ public class AuthController {
     /**
      * Solicita recuperação de senha.
      * 
-     * Gera um token de recuperação de senha para o email fornecido.
-     * Em produção, o token seria enviado por email, mas no desenvolvimento
-     * é retornado na resposta.
+     * Gera um token de recuperação de senha para o email fornecido e envia por email.
+     * Por motivos de segurança, sempre retorna a mesma mensagem, independente
+     * do email existir ou não no sistema.
      * 
      * @param request dados da solicitação de recuperação (email)
-     * @return ResponseEntity com mensagem de confirmação e token (desenvolvimento)
+     * @return ResponseEntity com mensagem de confirmação genérica
      */
     @PostMapping("/forgot-password")
     @Operation(
         summary = "Solicitar recuperação de senha",
-        description = "Gera um token de recuperação de senha para o email fornecido. Em produção o token é enviado por email, mas no desenvolvimento é retornado na resposta para facilitar testes."
+        description = "Gera um token de recuperação de senha para o email fornecido. Por motivos de segurança, sempre retorna a mesma mensagem, independente do email existir ou não no sistema."
     )
     @ApiResponses(value = {
         @ApiResponse(
@@ -199,7 +199,7 @@ public class AuthController {
             content = @Content(
                 mediaType = "text/plain",
                 examples = @ExampleObject(
-                    value = "Token de recuperação gerado: abc123def456 (Em produção seria enviado por email)"
+                    value = "Se o email informado estiver cadastrado, um token de recuperação foi enviado para ele."
                 )
             )
         ),
@@ -218,8 +218,8 @@ public class AuthController {
     public ResponseEntity<String> forgotPassword(
         @Parameter(description = "Email para recuperação de senha", required = true)
         @Valid @RequestBody PasswordResetRequestDto request) {
-        String token = passwordResetService.generatePasswordResetToken(request);
-        return ResponseEntity.ok("Token de recuperação gerado: " + token + " (Em produção seria enviado por email)");
+        passwordResetService.generatePasswordResetToken(request);
+        return ResponseEntity.ok("Se o email informado estiver cadastrado, um token de recuperação foi enviado para ele.");
     }
     
     /**

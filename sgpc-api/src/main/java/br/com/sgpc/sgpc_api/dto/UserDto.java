@@ -2,7 +2,6 @@ package br.com.sgpc.sgpc_api.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Set;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -50,6 +49,6 @@ public class UserDto {
     @Schema(description = "Data da última atualização", example = "2024-01-20T14:45:00")
     private LocalDateTime updatedAt;
     
-    @Schema(description = "Funções do usuário no sistema", example = "[\"USER\", \"MANAGER\"]")
-    private Set<String> roles;
+    @Schema(description = "Função do usuário no sistema", example = "USER")
+    private String role;
 } 

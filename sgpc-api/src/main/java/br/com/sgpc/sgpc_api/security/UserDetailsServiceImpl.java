@@ -51,7 +51,7 @@ public class UserDetailsServiceImpl {
      */
     @Transactional
     public UserDetailsImpl loadUserByUsername(String email) throws RuntimeException {
-        User user = userRepository.findByEmailWithRoles(email)
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado: " + email));
         
         return UserDetailsImpl.build(user);

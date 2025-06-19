@@ -1,7 +1,5 @@
 package br.com.sgpc.sgpc_api.dto;
 
-import java.util.Set;
-
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -60,12 +58,12 @@ public class JwtResponseDto {
     private String fullName;
     
     /**
-     * Conjunto de roles/permissões do usuário.
+     * Role/permissão do usuário.
      * 
-     * Define as permissões e níveis de acesso do usuário no sistema.
+     * Define a permissão e nível de acesso do usuário no sistema.
      */
-    @Schema(description = "Roles/permissões do usuário", example = "[\"USER\", \"MANAGER\"]")
-    private Set<String> roles;
+    @Schema(description = "Role/permissão do usuário", example = "ADMIN")
+    private String role;
     
     /**
      * Construtor para criação da resposta JWT.
@@ -74,13 +72,13 @@ public class JwtResponseDto {
      * @param userId ID do usuário
      * @param email Email do usuário  
      * @param fullName Nome completo do usuário
-     * @param roles Conjunto de roles do usuário
+     * @param role Role do usuário
      */
-    public JwtResponseDto(String token, Long userId, String email, String fullName, Set<String> roles) {
+    public JwtResponseDto(String token, Long userId, String email, String fullName, String role) {
         this.token = token;
         this.userId = userId;
         this.email = email;
         this.fullName = fullName;
-        this.roles = roles;
+        this.role = role;
     }
 } 

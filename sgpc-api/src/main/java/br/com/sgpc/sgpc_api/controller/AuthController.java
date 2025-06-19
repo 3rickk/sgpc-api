@@ -132,18 +132,18 @@ public class AuthController {
      */
     @PostMapping("/register")
     @Operation(
-        summary = "Registrar novo usuário",
-        description = "Cria uma nova conta de usuário no sistema. Valida se o email não está em uso e aplica as regras de negócio para criação de usuários."
+        summary = "Registrar novo administrador",
+        description = "Cria uma nova conta de administrador no sistema. Todo usuário que se registra através deste endpoint será criado com role ADMIN automaticamente."
     )
     @ApiResponses(value = {
         @ApiResponse(
             responseCode = "201", 
-            description = "Usuário registrado com sucesso",
+            description = "Administrador registrado com sucesso",
             content = @Content(
                 mediaType = "application/json",
                 schema = @Schema(implementation = UserDto.class),
                 examples = @ExampleObject(
-                    value = "{ \"id\": 1, \"name\": \"João Silva\", \"email\": \"joao@email.com\", \"role\": \"USER\" }"
+                    value = "{ \"id\": 1, \"fullName\": \"João Silva\", \"email\": \"joao@email.com\", \"role\": \"ADMIN\" }"
                 )
             )
         ),
@@ -171,7 +171,7 @@ public class AuthController {
         )
     })
     public ResponseEntity<UserDto> registerUser(
-        @Parameter(description = "Dados para registro do novo usuário", required = true)
+        @Parameter(description = "Dados para registro do novo administrador", required = true)
         @Valid @RequestBody UserRegistrationDto signUpRequest) {
         UserDto user = authService.registerUser(signUpRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(user);

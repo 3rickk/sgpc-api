@@ -11,6 +11,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.com.sgpc.sgpc_api.dto.UserCreateDto;
 import br.com.sgpc.sgpc_api.dto.UserDto;
 import br.com.sgpc.sgpc_api.dto.UserRegistrationDto;
 import br.com.sgpc.sgpc_api.entity.Role;
@@ -74,16 +75,15 @@ public class UserService {
         user.setHourlyRate(userRegistrationDto.getHourlyRate());
         user.setIsActive(true);
         
-        // Adicionar roles
+        // Adicionar role única
         Set<Role> roles = new HashSet<>();
-        if (userRegistrationDto.getRoleNames() != null && !userRegistrationDto.getRoleNames().isEmpty()) {
-            for (String roleName : userRegistrationDto.getRoleNames()) {
+        String roleName = userRegistrationDto.getRoleName();
+        if (roleName != null && !roleName.isEmpty()) {
                 Role role = roleRepository.findByName(roleName)
                         .orElseThrow(() -> new RuntimeException("Perfil não encontrado: " + roleName));
                 roles.add(role);
-            }
         } else {
-            // Se não especificar roles, adicionar USER como padrão
+            // Se não especificar role, adicionar USER como padrão
             Role userRole = roleRepository.findByName("USER")
                     .orElseThrow(() -> new RuntimeException("Perfil padrão não encontrado. Entre em contato com o administrador"));
             roles.add(userRole);
@@ -135,7 +135,7 @@ public class UserService {
      * @return Optional<UserDto> usuário encontrado ou empty
      */
     public Optional<UserDto> getUserById(Long id) {
-        return userRepository.findByIdWithRoles(id)
+        return userRepository.findById(id)
                 .map(this::convertToDto);
     }
     
@@ -163,7 +163,7 @@ public class UserService {
      * @throws UserNotFoundException se o usuário não for encontrado
      */
     public UserDto updateUser(Long id, UserRegistrationDto userRegistrationDto) {
-        User user = userRepository.findByIdWithRoles(id)
+        User user = userRepository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException("Usuário com ID " + id + " não foi encontrado"));
         
         user.setFullName(userRegistrationDto.getFullName());
@@ -174,24 +174,23 @@ public class UserService {
             user.setPasswordHash(hashPassword(userRegistrationDto.getPassword()));
         }
         
-        // Atualizar roles se fornecidos, caso contrário preservar os existentes
-        if (userRegistrationDto.getRoleNames() != null && !userRegistrationDto.getRoleNames().isEmpty()) {
+        // Atualizar role se fornecida, caso contrário preservar a existente
+        if (userRegistrationDto.getRoleName() != null && !userRegistrationDto.getRoleName().isEmpty()) {
             // Remover todos os relacionamentos user-role existentes via query nativa
             userRepository.removeAllUserRoles(user.getId());
             
             // Limpar roles do objeto para manter sincronização
             user.getRoles().clear();
             
-            // Adicionar novos roles
+            // Adicionar nova role
             Set<Role> newRoles = new HashSet<>();
-            for (String roleName : userRegistrationDto.getRoleNames()) {
+            String roleName = userRegistrationDto.getRoleName();
                 Role role = roleRepository.findByName(roleName)
                         .orElseThrow(() -> new RuntimeException("Perfil não encontrado: " + roleName));
                 newRoles.add(role);
-            }
             user.setRoles(newRoles);
         }
-        // Se roleNames for null ou vazio, os roles existentes são preservados automaticamente
+        // Se roleName for null ou vazio, a role existente é preservada automaticamente
         
         User savedUser = userRepository.save(user);
         return convertToDto(savedUser);
@@ -232,6 +231,41 @@ public class UserService {
     }
     
     /**
+     * Cria um novo usuário por administrador.
+     * 
+     * Permite que administradores criem usuários com roles USER ou MANAGER.
+     * Usado pelos endpoints administrativos.
+     * 
+     * @param userCreateDto dados do usuário a ser criado
+     * @return UserDto dados do usuário criado
+     * @throws EmailAlreadyExistsException se o email já estiver em uso
+     * @throws RuntimeException se função não existir
+     */
+    public UserDto createUserByAdmin(UserCreateDto userCreateDto) {
+        if (userRepository.existsByEmail(userCreateDto.getEmail())) {
+            throw new EmailAlreadyExistsException("Este email já está cadastrado no sistema");
+        }
+        
+        User user = new User();
+        user.setFullName(userCreateDto.getFullName());
+        user.setEmail(userCreateDto.getEmail());
+        user.setPhone(userCreateDto.getPhone());
+        user.setPasswordHash(hashPassword(userCreateDto.getPassword()));
+        user.setHourlyRate(userCreateDto.getHourlyRate());
+        user.setIsActive(true);
+        
+        // Adicionar role específica
+        Set<Role> roles = new HashSet<>();
+        Role role = roleRepository.findByName(userCreateDto.getRoleName())
+                .orElseThrow(() -> new RuntimeException("Perfil não encontrado: " + userCreateDto.getRoleName()));
+        roles.add(role);
+        user.setRoles(roles);
+        
+        User savedUser = userRepository.save(user);
+        return convertToDto(savedUser);
+    }
+    
+    /**
      * Converte entidade User para UserDto.
      * 
      * Inclui todas as informações do usuário exceto dados sensíveis
@@ -251,10 +285,12 @@ public class UserService {
         dto.setCreatedAt(user.getCreatedAt());
         dto.setUpdatedAt(user.getUpdatedAt());
         
-        Set<String> roleNames = user.getRoles().stream()
+        // Pegar apenas a primeira role (sistema agora usa role única)
+        String roleName = user.getRoles().stream()
+                .findFirst()
                 .map(Role::getName)
-                .collect(Collectors.toSet());
-        dto.setRoles(roleNames);
+                .orElse(null);
+        dto.setRole(roleName);
         
         return dto;
     }

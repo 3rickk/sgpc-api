@@ -42,15 +42,15 @@ CREATE TABLE password_reset_tokens (
 
 -- Inserção de dados iniciais para roles
 INSERT INTO roles (name, description) VALUES 
-('ADMIN', 'Administrador do sistema'),
-('USER', 'Usuário padrão do sistema'),
-('MANAGER', 'Gerente com permissões intermediárias');
+('ADMIN', 'Administrador do sistema - acesso total'),
+('USER', 'Usuário padrão - acesso básico às funcionalidades'),
+('MANAGER', 'Gerente - gerenciamento de projetos e aprovações');
 
 -- Inserção de usuário administrador padrão
 -- Senha: admin123 (criptografada com BCrypt)
 INSERT INTO users (full_name, email, password_hash, is_active) VALUES 
 ('Administrador', 'admin@sgpc.com', '$2a$12$GGo8LGyW4.d7Rr1fehf6L.cmZ6lIJ4uKINabaIBjsfIb3FeocdjFa', TRUE);
 
--- Atribuindo role ADMIN ao usuário administrador
+-- Atribuindo apenas role ADMIN ao usuário administrador (role única)
 INSERT INTO user_roles (user_id, role_id) VALUES 
 (1, 1); 

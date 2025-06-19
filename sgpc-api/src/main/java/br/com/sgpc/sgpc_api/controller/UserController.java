@@ -7,12 +7,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.com.sgpc.sgpc_api.dto.ErrorResponseDto;
+import br.com.sgpc.sgpc_api.dto.UserCreateDto;
 import br.com.sgpc.sgpc_api.dto.UserDto;
 import br.com.sgpc.sgpc_api.dto.UserRegistrationDto;
 import br.com.sgpc.sgpc_api.exception.UserNotFoundException;
@@ -26,6 +28,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.security.access.prepost.PreAuthorize;
 import jakarta.validation.Valid;
 
 /**
@@ -50,6 +53,70 @@ public class UserController {
     private UserService userService;
     
     /**
+     * Cria um novo usuário (apenas para administradores).
+     * 
+     * Permite que administradores criem usuários com roles USER ou MANAGER.
+     * Este endpoint é restrito apenas para usuários com role ADMIN.
+     * 
+     * @param userCreateDto dados do usuário a ser criado
+     * @return UserDto dados do usuário criado
+     */
+    @PostMapping("/admin/create")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(
+        summary = "Criar usuário (Admin)",
+        description = "Permite que administradores criem novos usuários com roles USER ou MANAGER"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "201", 
+            description = "Usuário criado com sucesso",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = UserDto.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "400", 
+            description = "Dados inválidos",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "401", 
+            description = "Não autorizado",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "403", 
+            description = "Acesso negado - apenas administradores",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "409", 
+            description = "Email já cadastrado",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ErrorResponseDto.class)
+            )
+        )
+    })
+    public ResponseEntity<UserDto> createUserByAdmin(
+        @Parameter(description = "Dados do usuário a ser criado", required = true)
+        @Valid @RequestBody UserCreateDto userCreateDto) {
+        UserDto user = userService.createUserByAdmin(userCreateDto);
+        return ResponseEntity.status(201).body(user);
+    }
+    
+    /**
      * Lista todos os usuários do sistema.
      * 
      * @return List<UserDto> lista de todos os usuários
@@ -72,6 +139,7 @@ public class UserController {
                     examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/users\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<UserDto>> getAllUsers() {
         List<UserDto> users = userService.getAllUsers();
         return ResponseEntity.ok(users);
@@ -100,6 +168,7 @@ public class UserController {
                     examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/users/active\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @GetMapping("/active")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<UserDto>> getAllActiveUsers() {
         List<UserDto> users = userService.getAllActiveUsers();
         return ResponseEntity.ok(users);
@@ -177,6 +246,7 @@ public class UserController {
                     examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/users/1\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserDto> updateUser(
             @Parameter(description = "ID do usuário", required = true, example = "1") 
             @PathVariable Long id, 
@@ -217,6 +287,7 @@ public class UserController {
                     examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/users/1/deactivate\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @PutMapping("/{id}/deactivate")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deactivateUser(
             @Parameter(description = "ID do usuário", required = true, example = "1") 
             @PathVariable Long id) {
@@ -255,6 +326,7 @@ public class UserController {
                     examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/users/1/activate\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @PutMapping("/{id}/activate")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> activateUser(
             @Parameter(description = "ID do usuário", required = true, example = "1") 
             @PathVariable Long id) {

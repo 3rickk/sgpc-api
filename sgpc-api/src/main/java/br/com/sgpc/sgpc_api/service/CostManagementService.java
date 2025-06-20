@@ -221,8 +221,9 @@ public class CostManagementService {
 
         Task savedTask = taskRepository.save(task);
 
-        // Recalcular progresso do projeto
+        // Recalcular progresso e custos do projeto
         projectService.recalculateProjectProgress(task.getProject().getId());
+        projectService.recalculateProjectRealizedCost(task.getProject().getId());
 
         return convertTaskToViewDto(savedTask);
     }

@@ -173,6 +173,10 @@ public class TaskService {
         }
 
         Task savedTask = taskRepository.save(task);
+        
+        // Recalcular métricas do projeto automaticamente
+        recalculateProjectMetrics(savedTask.getProject().getId());
+        
         return convertToViewDto(savedTask);
     }
 
@@ -386,8 +390,8 @@ public class TaskService {
 
         Task savedTask = taskRepository.save(task);
         
-        // Recalcular progresso do projeto se houve mudança de progresso
-        recalculateProjectProgress(savedTask.getProject().getId());
+        // Recalcular métricas do projeto automaticamente
+        recalculateProjectMetrics(savedTask.getProject().getId());
         
         return convertToViewDto(savedTask);
     }
@@ -423,8 +427,8 @@ public class TaskService {
 
         Task savedTask = taskRepository.save(task);
         
-        // Recalcular progresso do projeto
-        recalculateProjectProgress(savedTask.getProject().getId());
+        // Recalcular métricas do projeto automaticamente
+        recalculateProjectMetrics(savedTask.getProject().getId());
         
         return convertToViewDto(savedTask);
     }
@@ -516,6 +520,35 @@ public class TaskService {
 
         project.updateProgress(BigDecimal.valueOf(averageProgress));
         projectRepository.save(project);
+    }
+
+    /**
+     * Recalcula o custo realizado de um projeto baseado nos custos das tarefas.
+     * 
+     * @param projectId ID do projeto
+     */
+    private void recalculateProjectRealizedCost(Long projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + projectId + " não foi encontrado"));
+
+        // Calcular custo total de todas as tarefas (não apenas concluídas para mostrar custo atual)
+        BigDecimal totalTaskCosts = taskRepository.findByProjectId(projectId)
+                .stream()
+                .map(Task::getTotalCost)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        project.updateRealizedCost(totalTaskCosts);
+        projectRepository.save(project);
+    }
+
+    /**
+     * Recalcula automaticamente tanto progresso quanto custos do projeto.
+     * 
+     * @param projectId ID do projeto
+     */
+    private void recalculateProjectMetrics(Long projectId) {
+        recalculateProjectProgress(projectId);
+        recalculateProjectRealizedCost(projectId);
     }
 
     /**

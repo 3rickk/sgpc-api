@@ -91,8 +91,10 @@ public class PdfReportService {
             addHeader(document, specificProject ? "Relatório Detalhado de Projeto" : "Relatório Geral de Projetos");
 
             if (!projects.isEmpty()) {
-                // Resumo executivo
-                addProjectSummary(document, projects);
+                // Resumo executivo (apenas para relatório geral)
+                if (!specificProject) {
+                    addProjectSummary(document, projects);
+                }
 
                 if (specificProject && projects.size() == 1) {
                     // Para projeto específico: gráficos de tarefas e desempenho da equipe

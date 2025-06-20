@@ -1,7 +1,12 @@
 package br.com.sgpc.sgpc_api.security;
 
+import java.util.Collection;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import br.com.sgpc.sgpc_api.entity.User;
 
@@ -29,7 +34,7 @@ import br.com.sgpc.sgpc_api.entity.User;
  * @version 1.0
  * @since 2024
  */
-public class UserDetailsImpl {
+public class UserDetailsImpl implements UserDetails {
     
     /**
      * ID único do usuário.
@@ -49,7 +54,7 @@ public class UserDetailsImpl {
     /**
      * Lista de authorities/roles do usuário.
      */
-    private Set<String> authorities;
+    private Collection<? extends GrantedAuthority> authorities;
     
     /**
      * Status ativo/inativo do usuário.
@@ -66,7 +71,7 @@ public class UserDetailsImpl {
      * @param isActive status ativo/inativo do usuário
      */
     public UserDetailsImpl(Long id, String email, String password, 
-                          Set<String> authorities, boolean isActive) {
+                          Collection<? extends GrantedAuthority> authorities, boolean isActive) {
         this.id = id;
         this.email = email;
         this.password = password;
@@ -75,18 +80,19 @@ public class UserDetailsImpl {
     }
     
     /**
-     * Método factory para criar UserDetailsImpl a partir de entidade User.
+     * Método factory para criar UserDetailsImpl a partir de entidade User e lista de roles.
      * 
      * Converte uma entidade User do sistema para UserDetailsImpl,
      * transformando roles em authorities com prefixo "ROLE_" conforme
      * padrão do Spring Security.
      * 
      * @param user entidade User do sistema SGPC
+     * @param roleNames lista de nomes das roles do usuário
      * @return UserDetailsImpl pronto para uso no Spring Security
      */
-    public static UserDetailsImpl build(User user) {
-        Set<String> authorities = user.getRoles().stream()
-                .map(role -> "ROLE_" + role.getName())
+    public static UserDetailsImpl buildWithRoleNames(User user, java.util.List<String> roleNames) {
+        Set<GrantedAuthority> authorities = roleNames.stream()
+                .map(roleName -> new SimpleGrantedAuthority("ROLE_" + roleName))
                 .collect(Collectors.toSet());
         
         return new UserDetailsImpl(
@@ -94,16 +100,17 @@ public class UserDetailsImpl {
                 user.getEmail(),
                 user.getPasswordHash(),
                 authorities,
-                user.getIsActive()
+                user.isActive()
         );
     }
     
     /**
      * Retorna as authorities do usuário.
      * 
-     * @return Set<String> conjunto de authorities/roles do usuário
+     * @return Collection<? extends GrantedAuthority> conjunto de authorities/roles do usuário
      */
-    public Set<String> getAuthorities() {
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
         return authorities;
     }
     
@@ -112,6 +119,7 @@ public class UserDetailsImpl {
      * 
      * @return String hash da senha do usuário
      */
+    @Override
     public String getPassword() {
         return password;
     }
@@ -124,6 +132,7 @@ public class UserDetailsImpl {
      * 
      * @return String email do usuário usado como username
      */
+    @Override
     public String getUsername() {
         return email;
     }
@@ -135,6 +144,7 @@ public class UserDetailsImpl {
      * 
      * @return boolean sempre true (contas não expiram)
      */
+    @Override
     public boolean isAccountNonExpired() {
         return true;
     }
@@ -147,6 +157,7 @@ public class UserDetailsImpl {
      * 
      * @return boolean sempre true (contas não são bloqueadas)
      */
+    @Override
     public boolean isAccountNonLocked() {
         return true;
     }
@@ -158,6 +169,7 @@ public class UserDetailsImpl {
      * 
      * @return boolean sempre true (credenciais não expiram)
      */
+    @Override
     public boolean isCredentialsNonExpired() {
         return true;
     }
@@ -170,6 +182,7 @@ public class UserDetailsImpl {
      * 
      * @return boolean true se o usuário está ativo
      */
+    @Override
     public boolean isEnabled() {
         return isActive;
     }

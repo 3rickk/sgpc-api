@@ -1,6 +1,13 @@
 package br.com.sgpc.sgpc_api.security;
 
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,7 +40,9 @@ import br.com.sgpc.sgpc_api.repository.UserRepository;
  * @since 2024
  */
 @Service
-public class UserDetailsServiceImpl {
+public class UserDetailsServiceImpl implements UserDetailsService {
+    
+    private static final Logger logger = LoggerFactory.getLogger(UserDetailsServiceImpl.class);
     
     @Autowired
     private UserRepository userRepository;
@@ -50,10 +59,13 @@ public class UserDetailsServiceImpl {
      * @throws RuntimeException se o usuário não for encontrado
      */
     @Transactional
-    public UserDetailsImpl loadUserByUsername(String email) throws RuntimeException {
+    @Override
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado: " + email));
+                .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado: " + email));
         
-        return UserDetailsImpl.build(user);
+        List<String> roleNames = userRepository.findRoleNamesByEmail(email);
+        
+        return UserDetailsImpl.buildWithRoleNames(user, roleNames);
     }
 } 

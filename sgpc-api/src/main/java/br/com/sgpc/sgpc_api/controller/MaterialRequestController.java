@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -39,6 +40,11 @@ import jakarta.validation.Valid;
  * Este controller fornece endpoints para criação, aprovação, rejeição
  * e consulta de solicitações de materiais para projetos.
  * 
+ * Permissões:
+ * - ADMIN: Acesso completo a todos os endpoints
+ * - MANAGER: Pode aprovar/rejeitar solicitações e visualizar todas
+ * - USER: Pode criar solicitações e visualizar as próprias
+ * 
  * @author Sistema SGPC
  * @version 1.0
  * @since 2024
@@ -55,6 +61,7 @@ public class MaterialRequestController {
 
     /**
      * Cria uma nova solicitação de material.
+     * Todos os usuários autenticados podem criar solicitações.
      * 
      * @param requestDto dados da solicitação
      * @param requesterId ID do usuário solicitante
@@ -89,6 +96,7 @@ public class MaterialRequestController {
                 examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/material-requests\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     public ResponseEntity<MaterialRequestDetailsDto> createMaterialRequest(
             @Valid @RequestBody @Parameter(description = "Dados da solicitação de material") MaterialRequestCreateDto requestDto,
             @RequestParam @Parameter(description = "ID do usuário solicitante", example = "1") Long requesterId) {
@@ -98,6 +106,7 @@ public class MaterialRequestController {
 
     /**
      * Lista todas as solicitações de material com filtros opcionais.
+     * ADMIN e MANAGER podem ver todas as solicitações.
      * 
      * @param status status da solicitação (opcional)
      * @param projectId ID do projeto (opcional)
@@ -129,6 +138,7 @@ public class MaterialRequestController {
                 examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/material-requests\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<List<MaterialRequestSummaryDto>> getAllMaterialRequests(
             @RequestParam(required = false) @Parameter(description = "Status da solicitação", example = "PENDENTE") String status,
             @RequestParam(required = false) @Parameter(description = "ID do projeto", example = "1") Long projectId) {
@@ -148,6 +158,8 @@ public class MaterialRequestController {
 
     /**
      * Obtém detalhes de uma solicitação específica.
+     * ADMIN e MANAGER podem ver qualquer solicitação.
+     * USER pode ver apenas suas próprias solicitações.
      * 
      * @param id ID da solicitação
      * @return MaterialRequestDetailsDto detalhes da solicitação
@@ -178,6 +190,7 @@ public class MaterialRequestController {
                 examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/material-requests/1\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or (hasRole('USER') and @materialRequestService.isRequestOwner(#id, authentication.principal.id))")
     public ResponseEntity<MaterialRequestDetailsDto> getMaterialRequestById(
             @PathVariable @Parameter(description = "ID da solicitação", example = "1") Long id) {
         return materialRequestService.getMaterialRequestById(id)
@@ -187,6 +200,7 @@ public class MaterialRequestController {
 
     /**
      * Aprova uma solicitação de material.
+     * Apenas ADMIN e MANAGER podem aprovar solicitações.
      * 
      * @param id ID da solicitação
      * @param approverId ID do usuário aprovador
@@ -221,28 +235,17 @@ public class MaterialRequestController {
                 examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/material-requests/1/approve\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @PutMapping("/{id}/approve")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<MaterialRequestDetailsDto> approveMaterialRequest(
             @PathVariable @Parameter(description = "ID da solicitação", example = "1") Long id,
             @RequestParam @Parameter(description = "ID do usuário aprovador", example = "1") Long approverId) {
-        try {
-            MaterialRequestDetailsDto approvedRequest = materialRequestService.approveMaterialRequest(id, approverId);
-            return ResponseEntity.ok(approvedRequest);
-        } catch (RuntimeException ex) {
-            String message = ex.getMessage();
-            if (message.contains("não encontrada") || message.contains("não encontrado")) {
-                throw new RuntimeException("Solicitação ou usuário não encontrado: " + message);
-            } else if (message.contains("não está pendente")) {
-                throw new RuntimeException("Solicitação não pode ser aprovada: " + message);
-            } else if (message.contains("Estoque insuficiente")) {
-                throw new RuntimeException("Estoque insuficiente: " + message);
-            } else {
-                throw new RuntimeException("Erro interno do servidor: " + message);
-            }
-        }
+        MaterialRequestDetailsDto approvedRequest = materialRequestService.approveMaterialRequest(id, approverId);
+        return ResponseEntity.ok(approvedRequest);
     }
 
     /**
      * Rejeita uma solicitação de material.
+     * Apenas ADMIN e MANAGER podem rejeitar solicitações.
      * 
      * @param id ID da solicitação
      * @param approverId ID do usuário que rejeitou
@@ -278,16 +281,18 @@ public class MaterialRequestController {
                 examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/material-requests/1/reject\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @PutMapping("/{id}/reject")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<MaterialRequestDetailsDto> rejectMaterialRequest(
             @PathVariable @Parameter(description = "ID da solicitação", example = "1") Long id,
             @RequestParam @Parameter(description = "ID do usuário que rejeitou", example = "1") Long approverId,
             @Valid @RequestBody @Parameter(description = "Dados da rejeição") MaterialRequestApprovalDto approvalDto) {
-            MaterialRequestDetailsDto rejectedRequest = materialRequestService.rejectMaterialRequest(id, approverId, approvalDto);
-            return ResponseEntity.ok(rejectedRequest);
+        MaterialRequestDetailsDto rejectedRequest = materialRequestService.rejectMaterialRequest(id, approverId, approvalDto);
+        return ResponseEntity.ok(rejectedRequest);
     }
 
     /**
      * Lista solicitações pendentes.
+     * ADMIN e MANAGER podem visualizar solicitações pendentes.
      * 
      * @return List<MaterialRequestSummaryDto> lista de solicitações pendentes
      */
@@ -314,14 +319,15 @@ public class MaterialRequestController {
                 examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/material-requests/pending\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @GetMapping("/pending")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<List<MaterialRequestSummaryDto>> getPendingMaterialRequests() {
-        List<MaterialRequestSummaryDto> pendingRequests = 
-                materialRequestService.getMaterialRequestsByStatus(RequestStatus.PENDENTE);
+        List<MaterialRequestSummaryDto> pendingRequests = materialRequestService.getMaterialRequestsByStatus(RequestStatus.PENDENTE);
         return ResponseEntity.ok(pendingRequests);
     }
 
     /**
      * Lista solicitações aprovadas.
+     * ADMIN e MANAGER podem visualizar solicitações aprovadas.
      * 
      * @return List<MaterialRequestSummaryDto> lista de solicitações aprovadas
      */
@@ -348,14 +354,15 @@ public class MaterialRequestController {
                 examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/material-requests/approved\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @GetMapping("/approved")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<List<MaterialRequestSummaryDto>> getApprovedMaterialRequests() {
-        List<MaterialRequestSummaryDto> approvedRequests = 
-                materialRequestService.getMaterialRequestsByStatus(RequestStatus.APROVADA);
+        List<MaterialRequestSummaryDto> approvedRequests = materialRequestService.getMaterialRequestsByStatus(RequestStatus.APROVADA);
         return ResponseEntity.ok(approvedRequests);
     }
 
     /**
      * Lista solicitações rejeitadas.
+     * ADMIN e MANAGER podem visualizar solicitações rejeitadas.
      * 
      * @return List<MaterialRequestSummaryDto> lista de solicitações rejeitadas
      */
@@ -382,14 +389,16 @@ public class MaterialRequestController {
                 examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/material-requests/rejected\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @GetMapping("/rejected")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<List<MaterialRequestSummaryDto>> getRejectedMaterialRequests() {
-        List<MaterialRequestSummaryDto> rejectedRequests = 
-                materialRequestService.getMaterialRequestsByStatus(RequestStatus.REJEITADA);
+        List<MaterialRequestSummaryDto> rejectedRequests = materialRequestService.getMaterialRequestsByStatus(RequestStatus.REJEITADA);
         return ResponseEntity.ok(rejectedRequests);
     }
 
     /**
-     * Lista solicitações de um projeto específico.
+     * Lista solicitações por projeto.
+     * ADMIN e MANAGER podem ver solicitações de qualquer projeto.
+     * USER pode ver apenas solicitações de projetos que participa.
      * 
      * @param projectId ID do projeto
      * @return List<MaterialRequestSummaryDto> lista de solicitações do projeto
@@ -420,10 +429,10 @@ public class MaterialRequestController {
                 examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/material-requests/project/1\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @GetMapping("/project/{projectId}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or (hasRole('USER') and @projectService.isUserInProjectTeam(#projectId, authentication.principal.id))")
     public ResponseEntity<List<MaterialRequestSummaryDto>> getMaterialRequestsByProject(
             @PathVariable @Parameter(description = "ID do projeto", example = "1") Long projectId) {
-        List<MaterialRequestSummaryDto> projectRequests = 
-                materialRequestService.getMaterialRequestsByProject(projectId);
+        List<MaterialRequestSummaryDto> projectRequests = materialRequestService.getMaterialRequestsByProject(projectId);
         return ResponseEntity.ok(projectRequests);
     }
-} 
+}

@@ -38,6 +38,11 @@ import jakarta.validation.Valid;
  * incluindo listagem, visualização, atualização e
  * ativação/desativação de contas de usuário.
  * 
+ * Permissões:
+ * - ADMIN: Acesso completo a todos os endpoints
+ * - MANAGER: Visualização de usuários apenas
+ * - USER: Visualização do próprio perfil apenas
+ * 
  * @author Sistema SGPC
  * @version 1.0
  * @since 2024
@@ -118,6 +123,7 @@ public class UserController {
     
     /**
      * Lista todos os usuários do sistema.
+     * Apenas ADMIN e MANAGER podem visualizar todos os usuários.
      * 
      * @return List<UserDto> lista de todos os usuários
      */
@@ -139,7 +145,7 @@ public class UserController {
                     examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/users\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<List<UserDto>> getAllUsers() {
         List<UserDto> users = userService.getAllUsers();
         return ResponseEntity.ok(users);
@@ -147,6 +153,7 @@ public class UserController {
     
     /**
      * Lista apenas os usuários ativos.
+     * Apenas ADMIN e MANAGER podem visualizar usuários ativos.
      * 
      * @return List<UserDto> lista de usuários ativos
      */
@@ -168,7 +175,7 @@ public class UserController {
                     examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/users/active\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @GetMapping("/active")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<List<UserDto>> getAllActiveUsers() {
         List<UserDto> users = userService.getAllActiveUsers();
         return ResponseEntity.ok(users);
@@ -176,6 +183,8 @@ public class UserController {
     
     /**
      * Obtém detalhes de um usuário específico.
+     * ADMIN e MANAGER podem ver qualquer usuário.
+     * USER pode ver apenas o próprio perfil.
      * 
      * @param id ID do usuário
      * @return UserDto dados do usuário
@@ -204,20 +213,22 @@ public class UserController {
                     examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/users/1\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or (hasRole('USER') and #id == authentication.principal.id)")
     public ResponseEntity<UserDto> getUserById(
             @Parameter(description = "ID do usuário", required = true, example = "1") 
             @PathVariable Long id) {
         return userService.getUserById(id)
                 .map(user -> ResponseEntity.ok(user))
-                .orElseThrow(() -> new UserNotFoundException("Usuário com ID " + id + " não foi encontrado"));
+                .orElse(ResponseEntity.notFound().build());
     }
     
     /**
-     * Atualiza dados de um usuário.
+     * Atualiza um usuário existente.
+     * Apenas ADMIN pode atualizar usuários.
      * 
-     * @param id ID do usuário
+     * @param id ID do usuário a ser atualizado
      * @param userDto dados atualizados do usuário
-     * @return UserDto usuário atualizado
+     * @return UserDto dados do usuário atualizado
      */
     @Operation(
         summary = "Atualizar usuário",
@@ -252,14 +263,16 @@ public class UserController {
             @PathVariable Long id, 
             @Parameter(description = "Dados atualizados do usuário", required = true) 
             @Valid @RequestBody UserRegistrationDto userDto) {
-            UserDto updatedUser = userService.updateUser(id, userDto);
-            return ResponseEntity.ok(updatedUser);
+        UserDto updatedUser = userService.updateUser(id, userDto);
+        return ResponseEntity.ok(updatedUser);
     }
     
     /**
-     * Desativa uma conta de usuário.
+     * Desativa um usuário.
+     * Apenas ADMIN pode desativar usuários.
      * 
-     * @param id ID do usuário
+     * @param id ID do usuário a ser desativado
+     * @return ResponseEntity<Void>
      */
     @Operation(
         summary = "Desativar usuário",
@@ -291,14 +304,16 @@ public class UserController {
     public ResponseEntity<Void> deactivateUser(
             @Parameter(description = "ID do usuário", required = true, example = "1") 
             @PathVariable Long id) {
-            userService.deactivateUser(id);
-            return ResponseEntity.ok().build();
+        userService.deactivateUser(id);
+        return ResponseEntity.ok().build();
     }
     
     /**
-     * Ativa uma conta de usuário.
+     * Ativa um usuário desativado.
+     * Apenas ADMIN pode ativar usuários.
      * 
-     * @param id ID do usuário
+     * @param id ID do usuário a ser ativado
+     * @return ResponseEntity<Void>
      */
     @Operation(
         summary = "Ativar usuário",
@@ -330,7 +345,7 @@ public class UserController {
     public ResponseEntity<Void> activateUser(
             @Parameter(description = "ID do usuário", required = true, example = "1") 
             @PathVariable Long id) {
-            userService.activateUser(id);
-            return ResponseEntity.ok().build();
+        userService.activateUser(id);
+        return ResponseEntity.ok().build();
     }
 } 

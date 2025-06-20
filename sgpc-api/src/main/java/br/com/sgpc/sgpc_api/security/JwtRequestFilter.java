@@ -130,16 +130,14 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         // Valida o token e configura o contexto de segurança
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             try {
-                UserDetailsImpl userDetails = this.userDetailsService.loadUserByUsername(username);
+                UserDetailsImpl userDetails = (UserDetailsImpl) this.userDetailsService.loadUserByUsername(username);
                 
                 if (jwtUtil.validateToken(jwtToken, userDetails)) {
                     // Token válido - configura o contexto de segurança
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userDetails, 
                         null, 
-                        userDetails.getAuthorities().stream()
-                            .map(SimpleGrantedAuthority::new)
-                            .collect(Collectors.toList())
+                        userDetails.getAuthorities()
                     );
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);

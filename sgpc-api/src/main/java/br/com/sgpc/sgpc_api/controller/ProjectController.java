@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -52,6 +53,11 @@ import jakarta.validation.Valid;
  * gerenciamento de equipes, anexos e consultas específicas como
  * projetos atrasados, por status, cliente, etc.
  * 
+ * Permissões:
+ * - ADMIN: Acesso completo a todos os endpoints
+ * - MANAGER: Acesso completo a todos os endpoints
+ * - USER: Apenas visualização de projetos, sem criação/edição/exclusão
+ * 
  * @author Sistema SGPC
  * @version 1.0
  * @since 2024
@@ -74,11 +80,13 @@ public class ProjectController {
 
     /**
      * Cria um novo projeto.
+     * Apenas ADMIN e MANAGER podem criar projetos.
      * 
      * @param projectCreateDto dados para criação do projeto
      * @return ResponseEntity com os detalhes do projeto criado
      */
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(
         summary = "Criar novo projeto",
         description = "Cria um novo projeto de construção com os dados fornecidos"
@@ -111,10 +119,12 @@ public class ProjectController {
 
     /**
      * Lista todos os projetos do sistema.
+     * Todos os usuários autenticados podem visualizar projetos.
      * 
      * @return ResponseEntity com lista de projetos resumidos
      */
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     @Operation(
         summary = "Listar todos os projetos",
         description = "Retorna uma lista resumida de todos os projetos do sistema"
@@ -139,11 +149,13 @@ public class ProjectController {
 
     /**
      * Busca um projeto específico pelo ID.
+     * Todos os usuários autenticados podem visualizar detalhes de projetos.
      * 
      * @param id ID do projeto
      * @return ResponseEntity com detalhes completos do projeto ou 404 se não encontrado
      */
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     @Operation(
         summary = "Obter projeto por ID",
         description = "Retorna os detalhes completos de um projeto específico"
@@ -174,12 +186,14 @@ public class ProjectController {
 
     /**
      * Atualiza dados de um projeto existente.
+     * Apenas ADMIN e MANAGER podem atualizar projetos.
      * 
      * @param id ID do projeto a ser atualizado
      * @param projectUpdateDto dados para atualização
      * @return ResponseEntity com projeto atualizado
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(
         summary = "Atualizar projeto",
         description = "Atualiza os dados de um projeto existente. Apenas campos fornecidos serão atualizados."
@@ -217,11 +231,13 @@ public class ProjectController {
 
     /**
      * Remove um projeto do sistema.
+     * Apenas ADMIN pode deletar projetos.
      * 
      * @param id ID do projeto a ser removido
-     * @return ResponseEntity vazio com status 204
+     * @return ResponseEntity sem conteúdo
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(
         summary = "Deletar projeto",
         description = "Remove um projeto do sistema permanentemente"
@@ -249,12 +265,14 @@ public class ProjectController {
     }
 
     /**
-     * Lista projetos filtrados por status.
+     * Lista projetos por status.
+     * Todos os usuários autenticados podem visualizar.
      * 
-     * @param status status dos projetos
-     * @return ResponseEntity com lista de projetos do status especificado
+     * @param status status do projeto
+     * @return ResponseEntity com lista de projetos filtrados
      */
     @GetMapping("/status/{status}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     @Operation(
         summary = "Listar projetos por status",
         description = "Retorna projetos filtrados por status específico (PLANEJAMENTO, EM_ANDAMENTO, PAUSADO, CONCLUIDO, CANCELADO)"
@@ -283,17 +301,16 @@ public class ProjectController {
             List<ProjectSummaryDto> projects = projectService.getProjectsByStatus(projectStatus);
             return ResponseEntity.ok(projects);
         } catch (IllegalArgumentException e) {
-            throw new br.com.sgpc.sgpc_api.exception.InvalidProjectStatusException("Status '" + status + "' não é válido. Use: PLANEJAMENTO, EM_ANDAMENTO, PAUSADO, CONCLUIDO, CANCELADO");
+            throw new br.com.sgpc.sgpc_api.exception.InvalidProjectStatusException("Status '" + status + "' não é válido");
         }
     }
 
     /**
      * Busca projetos por nome.
-     * 
-     * @param name nome ou parte do nome do projeto
-     * @return ResponseEntity com lista de projetos encontrados
+     * Todos os usuários autenticados podem pesquisar.
      */
     @GetMapping("/search")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     @Operation(
         summary = "Buscar projetos por nome",
         description = "Realiza busca textual nos nomes dos projetos (case-insensitive)"
@@ -317,21 +334,17 @@ public class ProjectController {
     public ResponseEntity<List<ProjectSummaryDto>> searchProjects(
         @Parameter(description = "Nome ou parte do nome do projeto", required = true)
         @RequestParam String name) {
-        if (name == null || name.trim().isEmpty()) {
-            throw new RuntimeException("O parâmetro 'name' é obrigatório para a busca");
-        }
-        
         List<ProjectSummaryDto> projects = projectService.searchProjectsByName(name);
         return ResponseEntity.ok(projects);
     }
 
     /**
-     * Lista projetos de um usuário específico.
-     * 
-     * @param userId ID do usuário
-     * @return ResponseEntity com lista de projetos do usuário
+     * Lista projetos de um usuário.
+     * ADMIN e MANAGER podem ver projetos de qualquer usuário.
+     * USER pode ver apenas seus próprios projetos.
      */
     @GetMapping("/user/{userId}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or (hasRole('USER') and #userId == authentication.principal.id)")
     @Operation(
         summary = "Listar projetos de um usuário",
         description = "Retorna projetos onde o usuário é membro da equipe"
@@ -355,21 +368,16 @@ public class ProjectController {
     public ResponseEntity<List<ProjectSummaryDto>> getProjectsByUser(
         @Parameter(description = "ID do usuário", required = true)
         @PathVariable Long userId) {
-        // Verificar se o usuário existe
-        if (!userRepository.existsById(userId)) {
-            throw new br.com.sgpc.sgpc_api.exception.UserNotFoundException("Usuário com ID " + userId + " não foi encontrado");
-        }
-        
         List<ProjectSummaryDto> projects = projectService.getProjectsByUserId(userId);
         return ResponseEntity.ok(projects);
     }
 
     /**
      * Lista projetos atrasados.
-     * 
-     * @return ResponseEntity com lista de projetos que passaram da data planejada
+     * ADMIN e MANAGER têm acesso completo.
      */
     @GetMapping("/delayed")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(
         summary = "Listar projetos atrasados",
         description = "Retorna projetos que passaram da data planejada de conclusão e ainda não foram finalizados"
@@ -388,18 +396,16 @@ public class ProjectController {
                     examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/projects/delayed\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     public ResponseEntity<List<ProjectSummaryDto>> getDelayedProjects() {
-        List<ProjectSummaryDto> delayedProjects = projectService.getDelayedProjects();
-        return ResponseEntity.ok(delayedProjects);
+        List<ProjectSummaryDto> projects = projectService.getDelayedProjects();
+        return ResponseEntity.ok(projects);
     }
 
     /**
-     * Adiciona um membro à equipe do projeto.
-     * 
-     * @param projectId ID do projeto
-     * @param userId ID do usuário a ser adicionado
-     * @return ResponseEntity com projeto atualizado
+     * Adiciona membro à equipe do projeto.
+     * Apenas ADMIN e MANAGER podem gerenciar equipes.
      */
     @PostMapping("/{projectId}/team/{userId}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(
         summary = "Adicionar membro à equipe",
         description = "Adiciona um usuário à equipe do projeto"
@@ -433,14 +439,11 @@ public class ProjectController {
     }
 
     /**
-     * Remove um membro da equipe do projeto.
-     * 
-     * @param projectId ID do projeto
-     * @param userId ID do usuário a ser removido
-     * @return ResponseEntity com projeto atualizado
-     * @throws RuntimeException se ocorrer erro na operação
+     * Remove membro da equipe do projeto.
+     * Apenas ADMIN e MANAGER podem gerenciar equipes.
      */
     @DeleteMapping("/{projectId}/team/{userId}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(
         summary = "Remover membro da equipe",
         description = "Remove um usuário da equipe do projeto"
@@ -474,12 +477,11 @@ public class ProjectController {
     }
 
     /**
-     * Lista membros da equipe do projeto.
-     * 
-     * @param projectId ID do projeto
-     * @return ResponseEntity com lista de membros da equipe
+     * Lista equipe do projeto.
+     * Todos os usuários autenticados podem visualizar.
      */
     @GetMapping("/{projectId}/team")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     @Operation(
         summary = "Listar equipe do projeto",
         description = "Retorna todos os membros da equipe do projeto"
@@ -508,12 +510,11 @@ public class ProjectController {
     }
 
     /**
-     * Lista anexos de um projeto.
-     * 
-     * @param projectId ID do projeto
-     * @return ResponseEntity com lista de anexos
+     * Lista anexos do projeto.
+     * Todos os usuários autenticados podem visualizar.
      */
     @GetMapping("/{projectId}/attachments")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     @Operation(
         summary = "Listar anexos do projeto",
         description = "Retorna todos os anexos de um projeto"
@@ -537,102 +538,16 @@ public class ProjectController {
     public ResponseEntity<List<Attachment>> getProjectAttachments(
         @Parameter(description = "ID do projeto", required = true)
         @PathVariable Long projectId) {
-        // Verificar se o projeto existe primeiro
-        if (projectService.getProjectById(projectId).isEmpty()) {
-            throw new RuntimeException("Projeto com ID " + projectId + " não foi encontrado");
-        }
-        
              List<Attachment> attachments = fileStorageService.getAttachmentsByEntity("Project", projectId);
              return ResponseEntity.ok(attachments);
     }
 
     /**
-     * Remove um anexo do projeto.
-     * 
-     * @param attachmentId ID do anexo
-     * @return ResponseEntity vazio com status 204
-     */
-    @DeleteMapping("/attachments/{attachmentId}")
-    @Operation(
-        summary = "Deletar anexo",
-        description = "Remove um anexo do projeto"
-    )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "204", description = "Anexo deletado com sucesso"),
-        @ApiResponse(responseCode = "401", description = "Não autorizado",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
-                    examples = @ExampleObject(value = "{\"status\":401,\"erro\":\"Não autorizado\",\"mensagem\":\"Token JWT inválido ou expirado\",\"path\":\"/api/projects/attachments/1\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
-        @ApiResponse(responseCode = "403", description = "Acesso negado",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
-                    examples = @ExampleObject(value = "{\"status\":403,\"erro\":\"Acesso negado\",\"mensagem\":\"Usuário não possui permissão para deletar anexos\",\"path\":\"/api/projects/attachments/1\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
-        @ApiResponse(responseCode = "404", description = "Anexo não encontrado",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
-                    examples = @ExampleObject(value = "{\"status\":404,\"erro\":\"Anexo não encontrado\",\"mensagem\":\"Anexo com ID 999 não foi encontrado\",\"path\":\"/api/projects/attachments/999\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
-        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
-                    examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/projects/attachments/1\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
-    })
-    public ResponseEntity<Void> deleteAttachment(
-        @Parameter(description = "ID do anexo", required = true)
-        @PathVariable Long attachmentId) {
-        try {
-            fileStorageService.deleteFile(attachmentId);
-            return ResponseEntity.noContent().build();
-        } catch (Exception e) {
-            if (e.getMessage().contains("não encontrado")) {
-                throw new RuntimeException("Anexo com ID " + attachmentId + " não foi encontrado");
-            }
-            throw new RuntimeException("Erro ao deletar anexo: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Lista projetos de um cliente específico.
-     * 
-     * @param client nome do cliente
-     * @return ResponseEntity com lista de projetos do cliente
-     */
-    @GetMapping("/client/{client}")
-    @Operation(
-        summary = "Listar projetos por cliente",
-        description = "Retorna todos os projetos de um cliente específico"
-    )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Lista de projetos do cliente",
-                    content = @Content(schema = @Schema(implementation = ProjectSummaryDto.class))),
-        @ApiResponse(responseCode = "400", description = "Nome do cliente inválido",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
-                    examples = @ExampleObject(value = "{\"status\":400,\"erro\":\"Parâmetro inválido\",\"mensagem\":\"Nome do cliente não pode estar vazio\",\"path\":\"/api/projects/client/\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
-        @ApiResponse(responseCode = "401", description = "Não autorizado",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
-                    examples = @ExampleObject(value = "{\"status\":401,\"erro\":\"Não autorizado\",\"mensagem\":\"Token JWT inválido ou expirado\",\"path\":\"/api/projects/client/João Silva\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
-        @ApiResponse(responseCode = "403", description = "Acesso negado",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
-                    examples = @ExampleObject(value = "{\"status\":403,\"erro\":\"Acesso negado\",\"mensagem\":\"Usuário não possui permissão para listar projetos por cliente\",\"path\":\"/api/projects/client/João Silva\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
-        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
-                    examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/projects/client/João Silva\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
-    })
-    public ResponseEntity<List<ProjectSummaryDto>> getProjectsByClient(
-        @Parameter(description = "Nome do cliente", required = true)
-        @PathVariable String client) {
-        if (client == null || client.trim().isEmpty()) {
-            throw new RuntimeException("Nome do cliente não pode estar vazio");
-        }
-        
-        List<ProjectSummaryDto> projects = projectService.getProjectsByClient(client.trim());
-        return ResponseEntity.ok(projects);
-    }
-
-    /**
-     * Faz upload de um anexo para o projeto.
-     * 
-     * @param projectId ID do projeto
-     * @param file arquivo a ser anexado
-     * @param authentication dados do usuário autenticado
-     * @return ResponseEntity com dados do anexo criado
+     * Upload de anexo para projeto.
+     * ADMIN e MANAGER podem fazer upload, USER apenas em projetos que participa.
      */
     @PostMapping("/{projectId}/attachments")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or (hasRole('USER') and @projectService.isUserInProjectTeam(#projectId, authentication.principal.id))")
     @Operation(
         summary = "Upload de anexo",
         description = "Faz upload de um arquivo como anexo do projeto"
@@ -680,12 +595,76 @@ public class ProjectController {
     }
 
     /**
-     * Faz download de um anexo.
-     * 
-     * @param attachmentId ID do anexo
-     * @return ResponseEntity com arquivo para download
+     * Deleta anexo do projeto.
+     * Apenas ADMIN e MANAGER podem deletar anexos.
+     */
+    @DeleteMapping("/attachments/{attachmentId}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
+    @Operation(
+        summary = "Deletar anexo",
+        description = "Remove um anexo do projeto"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "204", description = "Anexo deletado com sucesso"),
+        @ApiResponse(responseCode = "401", description = "Não autorizado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":401,\"erro\":\"Não autorizado\",\"mensagem\":\"Token JWT inválido ou expirado\",\"path\":\"/api/projects/attachments/1\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "403", description = "Acesso negado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":403,\"erro\":\"Acesso negado\",\"mensagem\":\"Usuário não possui permissão para deletar anexos\",\"path\":\"/api/projects/attachments/1\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "404", description = "Anexo não encontrado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":404,\"erro\":\"Anexo não encontrado\",\"mensagem\":\"Anexo com ID 999 não foi encontrado\",\"path\":\"/api/projects/attachments/999\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/projects/attachments/1\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
+    })
+    public ResponseEntity<Void> deleteAttachment(
+        @Parameter(description = "ID do anexo", required = true)
+        @PathVariable Long attachmentId) throws IOException {
+        fileStorageService.deleteFile(attachmentId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Lista projetos por cliente.
+     * Todos os usuários autenticados podem visualizar.
+     */
+    @GetMapping("/client/{client}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
+    @Operation(
+        summary = "Listar projetos por cliente",
+        description = "Retorna todos os projetos de um cliente específico"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Lista de projetos do cliente",
+                    content = @Content(schema = @Schema(implementation = ProjectSummaryDto.class))),
+        @ApiResponse(responseCode = "400", description = "Nome do cliente inválido",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":400,\"erro\":\"Parâmetro inválido\",\"mensagem\":\"Nome do cliente não pode estar vazio\",\"path\":\"/api/projects/client/\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "401", description = "Não autorizado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":401,\"erro\":\"Não autorizado\",\"mensagem\":\"Token JWT inválido ou expirado\",\"path\":\"/api/projects/client/João Silva\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "403", description = "Acesso negado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":403,\"erro\":\"Acesso negado\",\"mensagem\":\"Usuário não possui permissão para listar projetos por cliente\",\"path\":\"/api/projects/client/João Silva\",\"timestamp\":\"2024-01-15T10:30:00\"}"))),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class),
+                    examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/projects/client/João Silva\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
+    })
+    public ResponseEntity<List<ProjectSummaryDto>> getProjectsByClient(
+        @Parameter(description = "Nome do cliente", required = true)
+        @PathVariable String client) {
+        List<ProjectSummaryDto> projects = projectService.getProjectsByClient(client);
+        return ResponseEntity.ok(projects);
+    }
+
+    /**
+     * Download de anexo.
+     * Todos os usuários autenticados podem baixar anexos.
      */
     @GetMapping("/attachments/{attachmentId}/download")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     @Operation(
         summary = "Download de anexo",
         description = "Faz download de um anexo específico"
@@ -708,8 +687,8 @@ public class ProjectController {
     public ResponseEntity<Resource> downloadAttachment(
         @Parameter(description = "ID do anexo", required = true)
         @PathVariable Long attachmentId) throws IOException {
-        Resource resource = fileStorageService.loadFileAsResource(attachmentId);
         Attachment attachment = fileStorageService.getAttachment(attachmentId);
+        Resource resource = fileStorageService.loadFileAsResource(attachmentId);
 
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(attachment.getContentType()))

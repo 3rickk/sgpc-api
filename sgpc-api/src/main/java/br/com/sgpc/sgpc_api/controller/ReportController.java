@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -35,6 +36,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
  * de projetos, custos e estoque, com opção de exportação em
  * formato JSON ou CSV.
  * 
+ * Permissões:
+ * - ADMIN: Acesso completo a todos os relatórios
+ * - MANAGER: Acesso completo a todos os relatórios
+ * - USER: Acesso limitado a relatórios dos projetos que participa
+ * 
  * @author Sistema SGPC
  * @version 1.0
  * @since 2024
@@ -54,6 +60,8 @@ public class ReportController {
 
     /**
      * Gera relatório de projetos.
+     * ADMIN e MANAGER podem gerar relatórios de todos os projetos.
+     * USER pode gerar relatórios apenas dos projetos que participa.
      * 
      * @param format formato de saída (opcional): "csv" para CSV, caso contrário JSON
      * @return List<ProjectReportDto> ou arquivo CSV com dados dos projetos
@@ -89,6 +97,7 @@ public class ReportController {
                     examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/reports/projects\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @GetMapping("/projects")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     public ResponseEntity<?> getProjectReport(
             @RequestParam(value = "format", required = false) 
             @Parameter(description = "Formato de saída: 'csv' para CSV, omitir para JSON", 
@@ -113,6 +122,7 @@ public class ReportController {
 
     /**
      * Gera relatório de custos.
+     * ADMIN e MANAGER podem gerar relatórios de custos de todos os projetos.
      * 
      * @param format formato de saída (opcional): "csv" para CSV, caso contrário JSON
      * @return List<CostReportDto> ou arquivo CSV com dados de custos
@@ -148,6 +158,7 @@ public class ReportController {
                     examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/reports/costs\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @GetMapping("/costs")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<?> getCostReport(
             @RequestParam(value = "format", required = false) 
             @Parameter(description = "Formato de saída: 'csv' para CSV, omitir para JSON", 
@@ -172,6 +183,7 @@ public class ReportController {
 
     /**
      * Gera relatório de estoque.
+     * ADMIN e MANAGER podem gerar relatórios de estoque completos.
      * 
      * @param format formato de saída (opcional): "csv" para CSV, caso contrário JSON
      * @return List<StockReportDto> ou arquivo CSV com dados de estoque
@@ -207,6 +219,7 @@ public class ReportController {
                     examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/reports/stock\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @GetMapping("/stock")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<?> getStockReport(
             @RequestParam(value = "format", required = false) 
             @Parameter(description = "Formato de saída: 'csv' para CSV, omitir para JSON", 
@@ -257,6 +270,7 @@ public class ReportController {
                     examples = @ExampleObject(value = "{\"status\":500,\"erro\":\"Erro interno\",\"mensagem\":\"Erro interno do servidor\",\"path\":\"/api/reports/summary\",\"timestamp\":\"2024-01-15T10:30:00\"}")))
     })
     @GetMapping("/summary")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<ReportSummaryDto> getReportSummary() {
         List<ProjectReportDto> projects = reportService.getProjectReport();
         List<CostReportDto> costs = reportService.getCostReport();

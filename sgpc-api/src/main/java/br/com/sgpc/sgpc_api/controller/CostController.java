@@ -5,6 +5,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -44,6 +45,11 @@ import jakarta.validation.Valid;
  * controle de custos de tarefas, atualização de progresso e
  * gerenciamento de orçamento de projetos.
  * 
+ * Permissões:
+ * - ADMIN: Acesso completo a todos os endpoints de custos e serviços
+ * - MANAGER: Acesso completo a todos os endpoints de custos e serviços
+ * - USER: Visualização limitada de custos apenas dos projetos que participa
+ * 
  * @author Sistema SGPC
  * @version 1.0
  * @since 2024
@@ -62,6 +68,7 @@ public class CostController {
 
     /**
      * Cria um novo serviço no sistema.
+     * Apenas ADMIN e MANAGER podem criar serviços.
      * 
      * @param serviceCreateDto dados do serviço a ser criado
      * @return ServiceDto dados do serviço criado
@@ -103,6 +110,7 @@ public class CostController {
         )
     })
     @PostMapping("/services")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<ServiceDto> createService(
             @Valid @RequestBody @Parameter(description = "Dados do serviço") ServiceCreateDto serviceCreateDto) {
         ServiceDto createdService = costManagementService.createService(serviceCreateDto);
@@ -111,6 +119,7 @@ public class CostController {
 
     /**
      * Lista todos os serviços ativos.
+     * Todos os usuários autenticados podem visualizar serviços.
      * 
      * @return List<ServiceDto> lista de serviços ativos
      */
@@ -122,6 +131,7 @@ public class CostController {
         @ApiResponse(responseCode = "200", description = "Lista de serviços retornada com sucesso")
     })
     @GetMapping("/services")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     public ResponseEntity<List<ServiceDto>> getAllActiveServices() {
         List<ServiceDto> services = costManagementService.getAllActiveServices();
         return ResponseEntity.ok(services);
@@ -129,6 +139,7 @@ public class CostController {
 
     /**
      * Busca serviços por nome.
+     * Todos os usuários autenticados podem buscar serviços.
      * 
      * @param name termo de busca para o nome do serviço
      * @return List<ServiceDto> lista de serviços encontrados
@@ -152,6 +163,7 @@ public class CostController {
         )
     })
     @GetMapping("/services/search")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     public ResponseEntity<List<ServiceDto>> searchServices(
             @RequestParam @Parameter(description = "Nome do serviço para busca", example = "Alvenaria") String name) {
         List<ServiceDto> services = costManagementService.searchServices(name);
@@ -160,6 +172,8 @@ public class CostController {
 
     /**
      * Adiciona um serviço a uma tarefa.
+     * ADMIN e MANAGER podem adicionar serviços a qualquer tarefa.
+     * USER pode adicionar serviços apenas em tarefas de projetos que participa.
      * 
      * @param taskId ID da tarefa
      * @param serviceCreateDto dados do serviço para a tarefa
@@ -213,6 +227,7 @@ public class CostController {
         )
     })
     @PostMapping("/tasks/{taskId}/services")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or (hasRole('USER') and @taskService.isUserInTaskProject(#taskId, authentication.principal.id))")
     public ResponseEntity<TaskServiceDto> addServiceToTask(
             @PathVariable @Parameter(description = "ID da tarefa", example = "1") Long taskId,
             @Valid @RequestBody @Parameter(description = "Dados do serviço para a tarefa") TaskServiceCreateDto serviceCreateDto) {
@@ -245,6 +260,7 @@ public class CostController {
         )
     })
     @GetMapping("/tasks/{taskId}/services")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     public ResponseEntity<List<TaskServiceDto>> getTaskServices(
             @PathVariable @Parameter(description = "ID da tarefa", example = "1") Long taskId) {
         List<TaskServiceDto> taskServices = costManagementService.getTaskServices(taskId);
@@ -276,6 +292,7 @@ public class CostController {
         )
     })
     @DeleteMapping("/tasks/{taskId}/services/{serviceId}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<Void> removeServiceFromTask(
             @PathVariable @Parameter(description = "ID da tarefa", example = "1") Long taskId,
             @PathVariable @Parameter(description = "ID do serviço", example = "1") Long serviceId) {
@@ -327,6 +344,7 @@ public class CostController {
         )
     })
     @PutMapping("/tasks/{taskId}/progress")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or (hasRole('USER') and @taskService.isUserInTaskProject(#taskId, authentication.principal.id))")
     public ResponseEntity<TaskViewDto> updateTaskProgress(
             @PathVariable @Parameter(description = "ID da tarefa", example = "1") Long taskId,
             @Valid @RequestBody @Parameter(description = "Dados de atualização do progresso") TaskProgressUpdateDto progressUpdateDto) {
@@ -366,6 +384,7 @@ public class CostController {
         )
     })
     @GetMapping("/tasks/{taskId}/report")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     public ResponseEntity<TaskCostReportDto> getTaskCostReport(
             @PathVariable @Parameter(description = "ID da tarefa", example = "1") Long taskId) {
         TaskCostReportDto report = costManagementService.getTaskCostReport(taskId);
@@ -396,6 +415,7 @@ public class CostController {
         )
     })
     @PostMapping("/tasks/{taskId}/recalculate")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<Void> recalculateTaskCosts(
             @PathVariable @Parameter(description = "ID da tarefa", example = "1") Long taskId) {
         costManagementService.recalculateTaskCosts(taskId);
@@ -434,6 +454,7 @@ public class CostController {
         )
     })
     @GetMapping("/projects/{projectId}/budget")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or (hasRole('USER') and @projectService.isUserInProjectTeam(#projectId, authentication.principal.id))")
     public ResponseEntity<ProjectBudgetDto> getProjectBudget(
             @PathVariable @Parameter(description = "ID do projeto", example = "1") Long projectId) {
         ProjectBudgetDto budget = projectService.getProjectBudget(projectId);
@@ -464,6 +485,7 @@ public class CostController {
         )
     })
     @PostMapping("/projects/{projectId}/recalculate-cost")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<Void> recalculateProjectRealizedCost(
             @PathVariable @Parameter(description = "ID do projeto", example = "1") Long projectId) {
         projectService.recalculateProjectRealizedCost(projectId);
@@ -494,6 +516,7 @@ public class CostController {
         )
     })
     @PostMapping("/projects/{projectId}/recalculate-progress")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<Void> recalculateProjectProgress(
             @PathVariable @Parameter(description = "ID do projeto", example = "1") Long projectId) {
         projectService.recalculateProjectProgress(projectId);
@@ -520,6 +543,7 @@ public class CostController {
         )
     })
     @GetMapping("/projects/budget-report")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<List<ProjectBudgetDto>> getAllProjectsBudgetReport() {
         List<ProjectBudgetDto> report = projectService.getAllProjects().stream()
                 .map(project -> projectService.getProjectBudget(project.getId()))
@@ -547,6 +571,7 @@ public class CostController {
         )
     })
     @GetMapping("/projects/over-budget")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<List<ProjectBudgetDto>> getProjectsOverBudget() {
         List<ProjectBudgetDto> overBudgetProjects = projectService.getAllProjects().stream()
                 .map(project -> projectService.getProjectBudget(project.getId()))

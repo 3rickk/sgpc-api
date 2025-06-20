@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -75,6 +76,8 @@ public class TaskController {
 
     /**
      * Cria uma nova tarefa em um projeto.
+     * ADMIN e MANAGER podem criar tarefas em qualquer projeto.
+     * USER pode criar tarefas apenas em projetos onde é membro da equipe.
      * 
      * @param projectId ID do projeto ao qual a tarefa pertence
      * @param taskCreateDto dados da tarefa a ser criada
@@ -82,6 +85,7 @@ public class TaskController {
      * @throws RuntimeException se ocorrer erro na criação
      */
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or (hasRole('USER') and @projectService.isUserInProjectTeam(#projectId, authentication.principal.id))")
     @Operation(
         summary = "Criar nova tarefa",
         description = "Cria uma nova tarefa dentro de um projeto específico"
@@ -127,11 +131,13 @@ public class TaskController {
 
     /**
      * Obtém todas as tarefas de um projeto.
+     * Todos os usuários autenticados podem visualizar tarefas.
      * 
      * @param projectId ID do projeto
      * @return ResponseEntity contendo lista de tarefas do projeto
      */
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     @Operation(
         summary = "Listar tarefas do projeto",
         description = "Obtém todas as tarefas de um projeto específico"
@@ -160,12 +166,14 @@ public class TaskController {
 
     /**
      * Obtém uma tarefa específica por ID.
+     * Todos os usuários autenticados podem visualizar tarefas.
      * 
      * @param projectId ID do projeto
      * @param taskId ID da tarefa
      * @return ResponseEntity contendo os dados da tarefa ou 404 se não encontrada
      */
     @GetMapping("/{taskId}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     @Operation(
         summary = "Obter tarefa por ID",
         description = "Obtém os detalhes de uma tarefa específica"
@@ -198,6 +206,8 @@ public class TaskController {
 
     /**
      * Atualiza uma tarefa existente.
+     * ADMIN e MANAGER podem atualizar qualquer tarefa.
+     * USER pode atualizar tarefas apenas em projetos onde é membro da equipe.
      * 
      * @param projectId ID do projeto
      * @param taskId ID da tarefa a ser atualizada
@@ -206,6 +216,7 @@ public class TaskController {
      * @throws RuntimeException se ocorrer erro na atualização
      */
     @PutMapping("/{taskId}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or (hasRole('USER') and @projectService.isUserInProjectTeam(#projectId, authentication.principal.id))")
     @Operation(
         summary = "Atualizar tarefa",
         description = "Atualiza os dados de uma tarefa existente"
@@ -249,12 +260,15 @@ public class TaskController {
 
     /**
      * Exclui uma tarefa.
+     * ADMIN e MANAGER podem excluir qualquer tarefa.
+     * USER pode excluir tarefas apenas em projetos onde é membro da equipe.
      * 
      * @param projectId ID do projeto
      * @param taskId ID da tarefa a ser excluída
      * @return ResponseEntity vazio com status 204
      */
     @DeleteMapping("/{taskId}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(
         summary = "Excluir tarefa",
         description = "Remove uma tarefa do sistema"
@@ -287,6 +301,8 @@ public class TaskController {
      * Atualiza apenas o status de uma tarefa.
      * 
      * Endpoint otimizado para drag-and-drop do quadro Kanban.
+     * ADMIN e MANAGER podem atualizar qualquer tarefa.
+     * USER pode atualizar tarefas apenas em projetos onde é membro da equipe.
      * 
      * @param projectId ID do projeto
      * @param taskId ID da tarefa
@@ -295,6 +311,7 @@ public class TaskController {
      * @throws RuntimeException se ocorrer erro na atualização
      */
     @PatchMapping("/{taskId}/status")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or (hasRole('USER') and @projectService.isUserInProjectTeam(#projectId, authentication.principal.id))")
     @Operation(
         summary = "Atualizar status da tarefa",
         description = "Endpoint específico para atualização de status (drag-and-drop do Kanban)"
@@ -335,12 +352,15 @@ public class TaskController {
 
     /**
      * Filtra tarefas por status.
+     * ADMIN e MANAGER podem visualizar tarefas com qualquer status.
+     * USER pode visualizar tarefas apenas em projetos onde é membro da equipe.
      * 
      * @param projectId ID do projeto
      * @param status status das tarefas
      * @return ResponseEntity com lista de tarefas filtradas
      */
     @GetMapping("/status/{status}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     @Operation(
         summary = "Filtrar tarefas por status",
         description = "Obtém todas as tarefas de um projeto com status específico"
@@ -379,11 +399,14 @@ public class TaskController {
 
     /**
      * Obtém dados para o quadro Kanban.
+     * ADMIN e MANAGER podem visualizar o quadro Kanban.
+     * USER pode visualizar o quadro Kanban apenas em projetos onde é membro da equipe.
      * 
      * @param projectId ID do projeto
      * @return ResponseEntity contendo dados organizados para o Kanban
      */
     @GetMapping("/kanban")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     @Operation(
         summary = "Obter quadro Kanban",
         description = "Retorna tarefas organizadas por status para exibição em quadro Kanban"
@@ -425,11 +448,14 @@ public class TaskController {
 
     /**
      * Obtém tarefas atrasadas do projeto.
+     * ADMIN e MANAGER podem visualizar tarefas atrasadas.
+     * USER pode visualizar tarefas atrasadas apenas em projetos onde é membro da equipe.
      * 
      * @param projectId ID do projeto
      * @return ResponseEntity com lista de tarefas em atraso
      */
     @GetMapping("/overdue")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(
         summary = "Obter tarefas atrasadas",
         description = "Retorna todas as tarefas do projeto que estão com prazo vencido"
@@ -458,11 +484,14 @@ public class TaskController {
 
     /**
      * Obtém estatísticas das tarefas do projeto.
+     * ADMIN e MANAGER podem visualizar estatísticas.
+     * USER pode visualizar estatísticas apenas em projetos onde é membro da equipe.
      * 
      * @param projectId ID do projeto
      * @return ResponseEntity com estatísticas das tarefas
      */
     @GetMapping("/statistics")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     @Operation(
         summary = "Obter estatísticas das tarefas",
         description = "Retorna estatísticas detalhadas das tarefas do projeto, incluindo contadores por status e percentual de conclusão"
@@ -494,6 +523,8 @@ public class TaskController {
     
     /**
      * Faz upload de um anexo para uma tarefa.
+     * ADMIN e MANAGER podem adicionar anexos a qualquer tarefa.
+     * USER pode adicionar anexos apenas em tarefas de projetos onde é membro da equipe.
      * 
      * @param projectId ID do projeto
      * @param taskId ID da tarefa
@@ -502,6 +533,7 @@ public class TaskController {
      * @return ResponseEntity contendo dados do anexo criado
      */
     @PostMapping("/{taskId}/attachments")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or (hasRole('USER') and @projectService.isUserInProjectTeam(#projectId, authentication.principal.id))")
     @Operation(
         summary = "Upload de anexo para tarefa",
         description = "Faz upload de um arquivo como anexo de uma tarefa"
@@ -561,12 +593,15 @@ public class TaskController {
 
     /**
      * Lista anexos de uma tarefa.
+     * ADMIN e MANAGER podem visualizar anexos de qualquer tarefa.
+     * USER pode visualizar anexos apenas em tarefas de projetos onde é membro da equipe.
      * 
      * @param projectId ID do projeto
      * @param taskId ID da tarefa
      * @return ResponseEntity com lista de anexos
      */
     @GetMapping("/{taskId}/attachments")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     @Operation(
         summary = "Listar anexos da tarefa",
         description = "Obtém todos os anexos de uma tarefa específica"
@@ -602,11 +637,14 @@ public class TaskController {
 
     /**
      * Faz download de um anexo.
+     * ADMIN e MANAGER podem baixar qualquer anexo.
+     * USER pode baixar anexos apenas em projetos onde é membro da equipe.
      * 
      * @param attachmentId ID do anexo
      * @return ResponseEntity com arquivo para download
      */
     @GetMapping("/attachments/{attachmentId}/download")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     @Operation(
         summary = "Download de anexo",
         description = "Faz download de um anexo específico"
@@ -645,11 +683,14 @@ public class TaskController {
 
     /**
      * Exclui um anexo.
+     * ADMIN e MANAGER podem excluir qualquer anexo.
+     * USER pode excluir anexos apenas em projetos onde é membro da equipe.
      * 
      * @param attachmentId ID do anexo a ser excluído
      * @return ResponseEntity vazio com status 204
      */
     @DeleteMapping("/attachments/{attachmentId}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(
         summary = "Excluir anexo",
         description = "Remove um anexo do sistema"
@@ -724,12 +765,15 @@ public class TaskController {
 
     /**
      * Obtém tarefas atribuídas a um usuário específico.
+     * ADMIN e MANAGER podem visualizar tarefas de qualquer usuário.
+     * USER pode visualizar tarefas apenas em projetos onde é membro da equipe.
      * 
      * @param projectId ID do projeto
      * @param userId ID do usuário
      * @return ResponseEntity contendo lista de tarefas atribuídas ao usuário
      */
     @GetMapping("/assigned/{userId}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or (hasRole('USER') and #userId == authentication.principal.id)")
     @Operation(
         summary = "Obter tarefas por usuário",
         description = "Obtém todas as tarefas atribuídas a um usuário específico"

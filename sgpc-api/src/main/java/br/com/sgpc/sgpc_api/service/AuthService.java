@@ -52,27 +52,18 @@ public class AuthService {
             throw new UserInactiveException("Conta desativada. Entre em contato com o administrador");
         }
         
-        UserDetailsImpl userDetails = UserDetailsImpl.build(user);
+        // Busca as roles do usuário usando query JPA otimizada
+        List<String> roleNames = userRepository.findRoleNamesByEmail(loginRequest.getEmail());
+        
+        UserDetailsImpl userDetails = UserDetailsImpl.buildWithRoleNames(user, roleNames);
         String jwt = jwtUtil.generateToken(userDetails);
         
-        // Busca a role do usuário usando query JPA otimizada
-        String role = findUserRole(loginRequest.getEmail());
+        String role = roleNames.isEmpty() ? "USER" : roleNames.get(0);
         
         return new JwtResponseDto(jwt, user.getId(), user.getEmail(), user.getFullName(), role);
     }
     
-    /**
-     * Busca a role de um usuário usando query JPA.
-     */
-    private String findUserRole(String email) {
-        List<String> roleNames = userRepository.findRoleNamesByEmail(email);
-        if (!roleNames.isEmpty()) {
-            return roleNames.get(0); // Retorna a primeira role
-        }
-        
-        // Fallback: role padrão
-        return "USER";
-    }
+
     
     /**
      * Valida se a senha fornecida corresponde ao hash armazenado.

@@ -2,6 +2,7 @@ package br.com.sgpc.sgpc_api.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,6 +27,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
  * consolidados para exibição no dashboard, incluindo
  * estatísticas e resumos dos principais módulos do sistema.
  * 
+ * Permissões:
+ * - ADMIN: Acesso completo aos dados do dashboard
+ * - MANAGER: Acesso completo aos dados do dashboard
+ * - USER: Acesso limitado aos dados do dashboard baseado nos projetos que participa
+ * 
  * @author Sistema SGPC
  * @version 1.0
  * @since 2024
@@ -42,6 +48,7 @@ public class DashboardController {
 
     /**
      * Obtém dados consolidados para o dashboard.
+     * Todos os usuários autenticados podem acessar o dashboard.
      * 
      * Retorna estatísticas e resumos de projetos, tarefas, materiais
      * e outras informações relevantes para exibição no dashboard principal.
@@ -81,6 +88,7 @@ public class DashboardController {
                 ))
     })
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     public ResponseEntity<DashboardDto> getDashboardData() {
         DashboardDto dashboardData = dashboardService.getDashboardData();
         return ResponseEntity.ok(dashboardData);

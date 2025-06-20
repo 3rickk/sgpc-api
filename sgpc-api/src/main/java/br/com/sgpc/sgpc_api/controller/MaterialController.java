@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,6 +41,11 @@ import jakarta.validation.Valid;
  * Este controller fornece endpoints para CRUD completo de materiais,
  * controle de estoque, pesquisas e relatórios de materiais com baixo estoque.
  * 
+ * Permissões:
+ * - ADMIN: Acesso completo a todos os endpoints
+ * - MANAGER: Acesso completo a todos os endpoints
+ * - USER: Apenas visualização de materiais, sem criação/edição/exclusão
+ * 
  * @author Sistema SGPC
  * @version 1.0
  * @since 2024
@@ -56,11 +62,13 @@ public class MaterialController {
 
     /**
      * Cria um novo material no sistema.
+     * Apenas ADMIN e MANAGER podem criar materiais.
      * 
      * @param materialCreateDto dados do material a ser criado
      * @return ResponseEntity contendo os dados do material criado
      */
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(
         summary = "Criar novo material",
         description = "Cria um novo material no sistema com informações de estoque e fornecedor"
@@ -110,10 +118,12 @@ public class MaterialController {
 
     /**
      * Obtém todos os materiais cadastrados.
+     * Todos os usuários autenticados podem visualizar materiais.
      * 
      * @return ResponseEntity contendo lista de todos os materiais
      */
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     @Operation(
         summary = "Listar todos os materiais",
         description = "Obtém lista completa de todos os materiais cadastrados no sistema"
@@ -136,11 +146,13 @@ public class MaterialController {
 
     /**
      * Obtém um material específico por ID.
+     * Todos os usuários autenticados podem visualizar materiais.
      * 
      * @param id ID do material
      * @return ResponseEntity contendo os dados do material ou 404 se não encontrado
      */
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     @Operation(
         summary = "Obter material por ID",
         description = "Obtém os detalhes de um material específico"
@@ -175,12 +187,14 @@ public class MaterialController {
 
     /**
      * Atualiza um material existente.
+     * Apenas ADMIN e MANAGER podem atualizar materiais.
      * 
      * @param id ID do material a ser atualizado
      * @param materialUpdateDto dados para atualização do material
      * @return ResponseEntity contendo os dados atualizados do material
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(
         summary = "Atualizar material",
         description = "Atualiza os dados de um material existente"
@@ -239,12 +253,14 @@ public class MaterialController {
     }
 
     /**
-     * Exclui um material do sistema.
+     * Remove um material do sistema.
+     * Apenas ADMIN pode excluir materiais.
      * 
-     * @param id ID do material a ser excluído
-     * @return ResponseEntity sem conteúdo (204)
+     * @param id ID do material a ser removido
+     * @return ResponseEntity sem conteúdo
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(
         summary = "Excluir material",
         description = "Remove um material do sistema"
@@ -284,12 +300,14 @@ public class MaterialController {
     }
 
     /**
-     * Pesquisa materiais por nome.
+     * Busca materiais por nome.
+     * Todos os usuários autenticados podem pesquisar materiais.
      * 
-     * @param name nome do material para pesquisa (busca parcial)
+     * @param name termo de busca para o nome do material
      * @return ResponseEntity contendo lista de materiais encontrados
      */
     @GetMapping("/search")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     @Operation(
         summary = "Pesquisar materiais por nome",
         description = "Busca materiais que contenham o nome especificado (busca case-insensitive)"
@@ -321,12 +339,14 @@ public class MaterialController {
     }
 
     /**
-     * Obtém materiais por fornecedor.
+     * Lista materiais por fornecedor.
+     * Todos os usuários autenticados podem visualizar.
      * 
      * @param supplier nome do fornecedor
      * @return ResponseEntity contendo lista de materiais do fornecedor
      */
     @GetMapping("/supplier/{supplier}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     @Operation(
         summary = "Obter materiais por fornecedor",
         description = "Lista todos os materiais de um fornecedor específico"
@@ -350,11 +370,13 @@ public class MaterialController {
     }
 
     /**
-     * Obtém materiais com estoque baixo.
+     * Lista materiais com estoque baixo.
+     * ADMIN e MANAGER têm acesso a relatórios de estoque baixo.
      * 
      * @return ResponseEntity contendo lista de materiais com estoque baixo
      */
     @GetMapping("/low-stock")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(
         summary = "Obter materiais com estoque baixo",
         description = "Lista materiais que estão com quantidade atual abaixo do estoque mínimo"
@@ -376,13 +398,15 @@ public class MaterialController {
     }
     
     /**
-     * Atualiza estoque de um material.
+     * Atualiza estoque do material.
+     * Apenas ADMIN e MANAGER podem gerenciar estoque.
      * 
      * @param id ID do material
      * @param stockMovementDto dados da movimentação de estoque
-     * @return ResponseEntity contendo o material com estoque atualizado
+     * @return ResponseEntity contendo material com estoque atualizado
      */
     @PostMapping("/{id}/stock")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(
         summary = "Atualizar estoque do material",
         description = "Registra movimentação de estoque (entrada ou saída) com histórico"
@@ -437,12 +461,14 @@ public class MaterialController {
 
     /**
      * Adiciona quantidade ao estoque.
+     * Apenas ADMIN e MANAGER podem gerenciar estoque.
      * 
      * @param id ID do material
      * @param quantity quantidade a ser adicionada
-     * @return ResponseEntity contendo o material com estoque atualizado
+     * @return ResponseEntity contendo material com estoque atualizado
      */
     @PostMapping("/{id}/stock/add")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(
         summary = "Adicionar ao estoque",
         description = "Endpoint simplificado para entrada de material no estoque"
@@ -494,12 +520,14 @@ public class MaterialController {
 
     /**
      * Remove quantidade do estoque.
+     * Apenas ADMIN e MANAGER podem gerenciar estoque.
      * 
      * @param id ID do material
      * @param quantity quantidade a ser removida
-     * @return ResponseEntity contendo o material com estoque atualizado
+     * @return ResponseEntity contendo material com estoque atualizado
      */
     @PostMapping("/{id}/stock/remove")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(
         summary = "Remover do estoque",
         description = "Endpoint simplificado para saída de material do estoque"
@@ -551,4 +579,4 @@ public class MaterialController {
             MaterialDto updatedMaterial = materialService.removeStock(id, quantity);
             return ResponseEntity.ok(updatedMaterial);
     }
-} 
+}

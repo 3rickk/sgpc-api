@@ -1,5 +1,6 @@
 package br.com.sgpc.sgpc_api.service;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -348,9 +349,6 @@ public class TaskService {
         if (taskUpdateDto.getDescription() != null) {
             task.setDescription(taskUpdateDto.getDescription());
         }
-        if (taskUpdateDto.getStatus() != null) {
-            task.setStatus(taskUpdateDto.getStatus());
-        }
         if (taskUpdateDto.getStartDatePlanned() != null) {
             task.setStartDatePlanned(taskUpdateDto.getStartDatePlanned());
         }
@@ -364,7 +362,7 @@ public class TaskService {
             task.setEndDateActual(taskUpdateDto.getEndDateActual());
         }
         if (taskUpdateDto.getProgressPercentage() != null) {
-            task.setProgressPercentage(taskUpdateDto.getProgressPercentage());
+            task.updateProgress(taskUpdateDto.getProgressPercentage());
         }
         if (taskUpdateDto.getPriority() != null) {
             task.setPriority(taskUpdateDto.getPriority());
@@ -387,6 +385,10 @@ public class TaskService {
         }
 
         Task savedTask = taskRepository.save(task);
+        
+        // Recalcular progresso do projeto se houve mudança de progresso
+        recalculateProjectProgress(savedTask.getProject().getId());
+        
         return convertToViewDto(savedTask);
     }
 
@@ -407,17 +409,9 @@ public class TaskService {
                 .orElseThrow(() -> new TaskNotFoundException("Tarefa com ID " + taskId + " não foi encontrada"));
 
         TaskStatus oldStatus = task.getStatus();
-        task.setStatus(statusUpdateDto.getStatus());
-
-        // Lógica automática baseada na mudança de status
-        if (statusUpdateDto.getStatus() == TaskStatus.EM_ANDAMENTO && task.getStartDateActual() == null) {
-            task.setStartDateActual(LocalDate.now());
-        }
         
-        if (statusUpdateDto.getStatus() == TaskStatus.CONCLUIDA) {
-            task.setEndDateActual(LocalDate.now());
-            task.setProgressPercentage(100);
-        }
+        // Usar o novo método que sincroniza status e progresso automaticamente
+        task.updateStatus(statusUpdateDto.getStatus());
 
         // Adicionar notas sobre a mudança de status se fornecidas
         if (statusUpdateDto.getNotes() != null && !statusUpdateDto.getNotes().trim().isEmpty()) {
@@ -428,6 +422,10 @@ public class TaskService {
         }
 
         Task savedTask = taskRepository.save(task);
+        
+        // Recalcular progresso do projeto
+        recalculateProjectProgress(savedTask.getProject().getId());
+        
         return convertToViewDto(savedTask);
     }
 
@@ -491,6 +489,33 @@ public class TaskService {
         }
 
         return statistics;
+    }
+
+    /**
+     * Recalcula o progresso de um projeto baseado no progresso das tarefas.
+     * 
+     * @param projectId ID do projeto
+     */
+    private void recalculateProjectProgress(Long projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + projectId + " não foi encontrado"));
+
+        List<Task> projectTasks = taskRepository.findByProjectId(projectId);
+
+        if (projectTasks.isEmpty()) {
+            project.updateProgress(BigDecimal.ZERO);
+            projectRepository.save(project);
+            return;
+        }
+
+        // Calcular progresso médio baseado no progresso das tarefas
+        double averageProgress = projectTasks.stream()
+                .mapToInt(Task::getProgressPercentage)
+                .average()
+                .orElse(0.0);
+
+        project.updateProgress(BigDecimal.valueOf(averageProgress));
+        projectRepository.save(project);
     }
 
     /**

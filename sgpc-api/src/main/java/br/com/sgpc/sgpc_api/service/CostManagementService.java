@@ -194,6 +194,7 @@ public class CostManagementService {
      * Atualiza o percentual de progresso da tarefa e opcionalmente
      * as horas reais trabalhadas. Também pode adicionar notas sobre
      * o progresso. Após a atualização, recalcula o progresso do projeto.
+     * A sincronização entre progresso e status é feita automaticamente.
      * 
      * @param taskId ID da tarefa
      * @param progressUpdateDto dados de atualização do progresso
@@ -204,6 +205,7 @@ public class CostManagementService {
         Task task = taskRepository.findByIdWithDetails(taskId)
                 .orElseThrow(() -> new TaskNotFoundException("Tarefa não encontrada"));
 
+        // Usar o novo método que sincroniza progresso e status automaticamente
         task.updateProgress(progressUpdateDto.getProgressPercentage());
 
         if (progressUpdateDto.getActualHours() != null) {

@@ -354,14 +354,63 @@ public class Task {
             // Atualizar status automaticamente baseado no progresso
             if (newProgress == 0 && this.status != TaskStatus.A_FAZER) {
                 this.status = TaskStatus.A_FAZER;
+                this.startDateActual = null;
+                this.endDateActual = null;
             } else if (newProgress > 0 && newProgress < 100 && this.status != TaskStatus.EM_ANDAMENTO) {
                 this.status = TaskStatus.EM_ANDAMENTO;
                 if (this.startDateActual == null) {
                     this.startDateActual = LocalDate.now();
                 }
+                this.endDateActual = null;
             } else if (newProgress == 100 && this.status != TaskStatus.CONCLUIDA) {
                 this.status = TaskStatus.CONCLUIDA;
                 this.endDateActual = LocalDate.now();
+                if (this.startDateActual == null) {
+                    this.startDateActual = LocalDate.now();
+                }
+            }
+        }
+    }
+
+    /**
+     * Atualiza o status da tarefa com lógica automática de progresso.
+     * 
+     * Além de atualizar o status, altera automaticamente o progresso
+     * da tarefa baseado no status e atualiza datas de início/fim.
+     * 
+     * @param newStatus novo status da tarefa
+     */
+    public void updateStatus(TaskStatus newStatus) {
+        if (newStatus != null) {
+            this.status = newStatus;
+            
+            // Atualizar progresso automaticamente baseado no status
+            switch (newStatus) {
+                case A_FAZER:
+                    this.progressPercentage = 0;
+                    this.startDateActual = null;
+                    this.endDateActual = null;
+                    break;
+                case EM_ANDAMENTO:
+                    if (this.progressPercentage == 0 || this.progressPercentage == 100) {
+                        this.progressPercentage = 50; // Progresso padrão para em andamento
+                    }
+                    if (this.startDateActual == null) {
+                        this.startDateActual = LocalDate.now();
+                    }
+                    this.endDateActual = null;
+                    break;
+                case CONCLUIDA:
+                    this.progressPercentage = 100;
+                    this.endDateActual = LocalDate.now();
+                    if (this.startDateActual == null) {
+                        this.startDateActual = LocalDate.now();
+                    }
+                    break;
+                case BLOQUEADA:
+                case CANCELADA:
+                    // Manter progresso atual sem mudanças automáticas
+                    break;
             }
         }
     }

@@ -5,6 +5,8 @@ import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -333,10 +335,21 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponseDto> handleRuntimeException(
             RuntimeException ex, WebRequest request) {
         String message = ex.getMessage();
+        String exceptionType = ex.getClass().getSimpleName();
         HttpStatus status;
         String error;
         
-        if (message != null) {
+        // Verifica se é uma exceção de autorização encapsulada
+        if (ex.getCause() instanceof AccessDeniedException || 
+            exceptionType.contains("Authorization") || 
+            exceptionType.contains("Access") ||
+            (message != null && (message.contains("Access is denied") || 
+                                message.contains("não autorizado") || 
+                                message.contains("permission")))) {
+            status = HttpStatus.FORBIDDEN;
+            error = "Acesso negado";
+            message = "Você não tem permissão para realizar esta operação. Verifique seu nível de acesso.";
+        } else if (message != null) {
             if (message.contains("não encontrada") || message.contains("não encontrado")) {
                 status = HttpStatus.NOT_FOUND;
                 error = "Recurso não encontrado";
@@ -364,6 +377,30 @@ public class GlobalExceptionHandler {
                 request.getDescription(false).replace("uri=", "")
         );
         return new ResponseEntity<>(errorResponse, status);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponseDto> handleAccessDeniedException(
+            AccessDeniedException ex, WebRequest request) {
+        ErrorResponseDto error = new ErrorResponseDto(
+                HttpStatus.FORBIDDEN.value(),
+                "Acesso negado",
+                "Você não tem permissão para acessar este recurso. Verifique suas credenciais e tente novamente.",
+                request.getDescription(false).replace("uri=", "")
+        );
+        return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<ErrorResponseDto> handleAuthorizationDeniedException(
+            AuthorizationDeniedException ex, WebRequest request) {
+        ErrorResponseDto error = new ErrorResponseDto(
+                HttpStatus.FORBIDDEN.value(),
+                "Acesso negado",
+                "Você não tem permissão para realizar esta operação. Entre em contato com o administrador se necessário.",
+                request.getDescription(false).replace("uri=", "")
+        );
+        return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);
     }
 
     @ExceptionHandler(Exception.class)

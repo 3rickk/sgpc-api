@@ -15,6 +15,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.http.MediaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Arrays;
@@ -114,9 +115,10 @@ public class SecurityConfig {
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
             
-            // Configura o ponto de entrada para requisições não autenticadas
+            // Configura o ponto de entrada para requisições não autenticadas e acesso negado
             .exceptionHandling(exceptions -> exceptions
                 .authenticationEntryPoint(authenticationEntryPoint())
+                .accessDeniedHandler(accessDeniedHandler())
             )
             
             // Adiciona o filtro JWT antes do filtro de autenticação padrão
@@ -171,6 +173,30 @@ public class SecurityConfig {
             body.put("status", 401);
             body.put("error", "Não autorizado");
             body.put("message", "Token JWT requerido para acessar este endpoint");
+            body.put("path", request.getRequestURI());
+            body.put("timestamp", new Date());
+            
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.writeValue(response.getOutputStream(), body);
+        };
+    }
+
+    /**
+     * Configura o tratamento para acesso negado (403 Forbidden).
+     * 
+     * @return AccessDeniedHandler customizado
+     */
+    @Bean
+    public AccessDeniedHandler accessDeniedHandler() {
+        return (HttpServletRequest request, HttpServletResponse response,
+                org.springframework.security.access.AccessDeniedException accessDeniedException) -> {
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            
+            Map<String, Object> body = new HashMap<>();
+            body.put("status", 403);
+            body.put("error", "Acesso negado");
+            body.put("message", "Você não tem permissão para acessar este recurso. Verifique seu nível de acesso.");
             body.put("path", request.getRequestURI());
             body.put("timestamp", new Date());
             

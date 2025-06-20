@@ -35,3 +35,6 @@ build/
 ### Database Schema ###
 db.txt
 Requisitos.txt
+
+### Documentation ###
+ORGANIZACAO_PERMISSOES_ENDPOINTS.md

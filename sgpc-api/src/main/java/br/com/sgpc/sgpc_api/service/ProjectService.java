@@ -10,6 +10,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,13 +36,20 @@ import br.com.sgpc.sgpc_api.repository.ProjectRepository;
 import br.com.sgpc.sgpc_api.repository.TaskRepository;
 import br.com.sgpc.sgpc_api.repository.TaskServiceRepository;
 import br.com.sgpc.sgpc_api.repository.UserRepository;
+import br.com.sgpc.sgpc_api.security.UserDetailsImpl;
 
 /**
  * Serviço responsável pela lógica de negócio dos projetos.
  * 
  * Esta classe implementa todas as operações relacionadas ao gerenciamento
  * de projetos de construção, incluindo CRUD, gerenciamento de equipes,
- * controle de orçamento e cálculos de progresso.
+ * controle de orçamento, cálculos de progresso e isolamento de dados
+ * por usuário/contexto.
+ * 
+ * Implementa isolamento de dados onde:
+ * - ADMIN: acessa projetos que criou ou está na equipe
+ * - MANAGER: acessa apenas projetos onde está na equipe
+ * - USER: acessa apenas projetos onde está na equipe
  * 
  * @author Sistema SGPC
  * @version 1.0
@@ -63,10 +72,35 @@ public class ProjectService {
     private TaskServiceRepository taskServiceRepository;
 
     /**
+     * Obtém informações do usuário logado.
+     * 
+     * @return User usuário autenticado
+     */
+    private User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        return userRepository.findById(userDetails.getId())
+                .orElseThrow(() -> new UserNotFoundException("Usuário logado não encontrado"));
+    }
+
+    /**
+     * Obtém a role principal do usuário logado.
+     * 
+     * @return String role do usuário (ADMIN, MANAGER, USER)
+     */
+    private String getCurrentUserRole() {
+        User user = getCurrentUser();
+        if (user.hasRole("ADMIN")) return "ADMIN";
+        if (user.hasRole("MANAGER")) return "MANAGER";
+        return "USER";
+    }
+
+    /**
      * Cria um novo projeto no sistema.
      * 
      * Valida se não existe outro projeto com o mesmo nome, cria a entidade
-     * Project com os dados fornecidos e associa os membros da equipe especificados.
+     * Project com os dados fornecidos, define o usuário logado como criador
+     * e associa os membros da equipe especificados.
      * 
      * @param projectCreateDto dados para criação do projeto
      * @return ProjectDetailsDto dados completos do projeto criado
@@ -77,6 +111,8 @@ public class ProjectService {
         if (projectRepository.existsByName(projectCreateDto.getName())) {
             throw new ProjectAlreadyExistsException("Já existe um projeto cadastrado com o nome: " + projectCreateDto.getName());
         }
+
+        User currentUser = getCurrentUser();
 
         // Validar data inicial se fornecida - GP-30
         if (projectCreateDto.getStartDatePlanned() != null && 
@@ -113,6 +149,9 @@ public class ProjectService {
         project.setClient(projectCreateDto.getClient());
         project.setStatus(projectCreateDto.getStatus() != null ? 
                           projectCreateDto.getStatus() : ProjectStatus.PLANEJAMENTO);
+        
+        // Define o usuário logado como criador do projeto
+        project.setCreatedBy(currentUser);
 
         // Adicionar membros da equipe
         if (projectCreateDto.getTeamMemberIds() != null && !projectCreateDto.getTeamMemberIds().isEmpty()) {
@@ -129,52 +168,129 @@ public class ProjectService {
         return convertToDetailsDto(savedProject);
     }
 
+    /**
+     * Lista todos os projetos acessíveis pelo usuário logado.
+     * 
+     * Aplica filtros baseados na role do usuário:
+     * - ADMIN: projetos que criou ou está na equipe
+     * - MANAGER/USER: apenas projetos onde está na equipe
+     * 
+     * @return List<ProjectSummaryDto> projetos acessíveis
+     */
     @Transactional(readOnly = true)
     public List<ProjectSummaryDto> getAllProjects() {
-        return projectRepository.findAll().stream()
+        User currentUser = getCurrentUser();
+        String userRole = getCurrentUserRole();
+        
+        return projectRepository.findProjectsAccessibleByUser(currentUser.getId(), userRole)
+                .stream()
                 .map(this::convertToSummaryDto)
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Busca um projeto por ID com verificação de acesso.
+     * 
+     * @param id ID do projeto
+     * @return Optional<ProjectDetailsDto> projeto se acessível pelo usuário
+     */
     @Transactional(readOnly = true)
     public Optional<ProjectDetailsDto> getProjectById(Long id) {
-        return projectRepository.findByIdWithTeamMembers(id)
+        User currentUser = getCurrentUser();
+        String userRole = getCurrentUserRole();
+        
+        return projectRepository.findByIdAccessibleByUser(id, currentUser.getId(), userRole)
                 .map(this::convertToDetailsDto);
     }
 
+    /**
+     * Busca projetos por status acessíveis pelo usuário logado.
+     */
     @Transactional(readOnly = true)
     public List<ProjectSummaryDto> getProjectsByStatus(ProjectStatus status) {
-        return projectRepository.findByStatus(status).stream()
+        User currentUser = getCurrentUser();
+        String userRole = getCurrentUserRole();
+        
+        return projectRepository.findByStatusAccessibleByUser(status, currentUser.getId(), userRole)
+                .stream()
                 .map(this::convertToSummaryDto)
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Busca projetos por cliente acessíveis pelo usuário logado.
+     */
     @Transactional(readOnly = true)
     public List<ProjectSummaryDto> getProjectsByClient(String client) {
-        return projectRepository.findByClient(client).stream()
+        User currentUser = getCurrentUser();
+        String userRole = getCurrentUserRole();
+        
+        return projectRepository.findByClientAccessibleByUser(client, currentUser.getId(), userRole)
+                .stream()
                 .map(this::convertToSummaryDto)
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Busca projetos por nome acessíveis pelo usuário logado.
+     */
     @Transactional(readOnly = true)
     public List<ProjectSummaryDto> searchProjectsByName(String name) {
-        return projectRepository.findByNameContainingIgnoreCase(name).stream()
+        User currentUser = getCurrentUser();
+        String userRole = getCurrentUserRole();
+        
+        return projectRepository.findByNameContainingIgnoreCaseAccessibleByUser(name, currentUser.getId(), userRole)
+                .stream()
                 .map(this::convertToSummaryDto)
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Busca projetos por usuário (apenas para ADMIN e MANAGER).
+     * USER pode ver apenas seus próprios projetos.
+     */
     @Transactional(readOnly = true)
     public List<ProjectSummaryDto> getProjectsByUserId(Long userId) {
+        User currentUser = getCurrentUser();
+        String userRole = getCurrentUserRole();
+        
+        // USER só pode ver seus próprios projetos
+        if ("USER".equals(userRole) && !currentUser.getId().equals(userId)) {
+            throw new SecurityException("Usuário não tem permissão para ver projetos de outros usuários");
+        }
+        
         return projectRepository.findProjectsByTeamMemberId(userId).stream()
+                .filter(project -> {
+                    // Verifica se o projeto atual é acessível pelo usuário logado
+                    return projectRepository.isProjectAccessibleByUser(project.getId(), currentUser.getId(), userRole);
+                })
                 .map(this::convertToSummaryDto)
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Busca projetos atrasados acessíveis pelo usuário logado.
+     */
     @Transactional(readOnly = true)
     public List<ProjectSummaryDto> getDelayedProjects() {
-        return projectRepository.findDelayedProjects(LocalDate.now()).stream()
+        User currentUser = getCurrentUser();
+        String userRole = getCurrentUserRole();
+        
+        return projectRepository.findDelayedProjectsAccessibleByUser(LocalDate.now(), currentUser.getId(), userRole)
+                .stream()
                 .map(this::convertToSummaryDto)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Verifica se o usuário logado pode acessar o projeto.
+     */
+    public boolean isUserInProjectTeam(Long projectId, Long userId) {
+        User currentUser = getCurrentUser();
+        String userRole = getCurrentUserRole();
+        
+        // Verifica se o usuário pode acessar o projeto
+        return projectRepository.isProjectAccessibleByUser(projectId, currentUser.getId(), userRole);
     }
 
     /**
@@ -182,15 +298,24 @@ public class ProjectService {
      * 
      * Permite atualização parcial dos dados do projeto. Valida se o novo nome
      * não está em uso por outro projeto antes de alterar.
+     * Verifica se o usuário tem acesso ao projeto.
      * 
      * @param id identificador único do projeto
      * @param projectUpdateDto dados para atualização (apenas campos não nulos são atualizados)
      * @return ProjectDetailsDto dados atualizados do projeto
      * @throws ProjectNotFoundException se projeto não for encontrado
      * @throws ProjectAlreadyExistsException se nome já existir
-     * @throws RuntimeException se usuário não for encontrado
+     * @throws SecurityException se usuário não tiver acesso ao projeto
      */
     public ProjectDetailsDto updateProject(Long id, ProjectUpdateDto projectUpdateDto) {
+        User currentUser = getCurrentUser();
+        String userRole = getCurrentUserRole();
+        
+        // Verifica se o usuário tem acesso ao projeto
+        if (!projectRepository.isProjectAccessibleByUser(id, currentUser.getId(), userRole)) {
+            throw new SecurityException("Usuário não tem acesso a este projeto");
+        }
+        
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + id + " não foi encontrado"));
 
@@ -247,11 +372,21 @@ public class ProjectService {
 
     /**
      * Remove um projeto do sistema.
+     * Verifica se o usuário tem acesso ao projeto.
      * 
      * @param id ID do projeto a ser removido
      * @throws ProjectNotFoundException se o projeto não for encontrado
+     * @throws SecurityException se usuário não tiver acesso ao projeto
      */
     public void deleteProject(Long id) {
+        User currentUser = getCurrentUser();
+        String userRole = getCurrentUserRole();
+        
+        // Verifica se o usuário tem acesso ao projeto
+        if (!projectRepository.isProjectAccessibleByUser(id, currentUser.getId(), userRole)) {
+            throw new SecurityException("Usuário não tem acesso a este projeto");
+        }
+        
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + id + " não foi encontrado"));
         
@@ -260,15 +395,25 @@ public class ProjectService {
 
     /**
      * Adiciona um membro à equipe do projeto.
+     * Verifica se o usuário tem acesso ao projeto.
      * 
      * @param projectId ID do projeto
      * @param userId ID do usuário
      * @return ProjectDetailsDto dados atualizados do projeto
      * @throws ProjectNotFoundException se projeto não for encontrado
-     * @throws RuntimeException se usuário não for encontrado
+     * @throws UserNotFoundException se usuário não for encontrado
      * @throws UserAlreadyInTeamException se usuário já estiver na equipe
+     * @throws SecurityException se usuário não tiver acesso ao projeto
      */
     public ProjectDetailsDto addTeamMember(Long projectId, Long userId) {
+        User currentUser = getCurrentUser();
+        String userRole = getCurrentUserRole();
+        
+        // Verifica se o usuário tem acesso ao projeto
+        if (!projectRepository.isProjectAccessibleByUser(projectId, currentUser.getId(), userRole)) {
+            throw new SecurityException("Usuário não tem acesso a este projeto");
+        }
+        
         Project project = projectRepository.findByIdWithTeamMembers(projectId)
                 .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + projectId + " não foi encontrado"));
         
@@ -286,15 +431,25 @@ public class ProjectService {
 
     /**
      * Remove um membro da equipe do projeto.
+     * Verifica se o usuário tem acesso ao projeto.
      * 
      * @param projectId ID do projeto
      * @param userId ID do usuário
      * @return ProjectDetailsDto dados atualizados do projeto
      * @throws ProjectNotFoundException se projeto não for encontrado
-     * @throws RuntimeException se usuário não for encontrado
+     * @throws UserNotFoundException se usuário não for encontrado
      * @throws UserNotInTeamException se usuário não estiver na equipe
+     * @throws SecurityException se usuário não tiver acesso ao projeto
      */
     public ProjectDetailsDto removeTeamMember(Long projectId, Long userId) {
+        User currentUser = getCurrentUser();
+        String userRole = getCurrentUserRole();
+        
+        // Verifica se o usuário tem acesso ao projeto
+        if (!projectRepository.isProjectAccessibleByUser(projectId, currentUser.getId(), userRole)) {
+            throw new SecurityException("Usuário não tem acesso a este projeto");
+        }
+        
         Project project = projectRepository.findByIdWithTeamMembers(projectId)
                 .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + projectId + " não foi encontrado"));
         
@@ -312,13 +467,23 @@ public class ProjectService {
 
     /**
      * Lista membros da equipe do projeto.
+     * Verifica se o usuário tem acesso ao projeto.
      * 
      * @param projectId ID do projeto
      * @return List<UserDto> lista de membros da equipe
      * @throws ProjectNotFoundException se projeto não for encontrado
+     * @throws SecurityException se usuário não tiver acesso ao projeto
      */
     @Transactional(readOnly = true)
     public List<UserDto> getProjectTeamMembers(Long projectId) {
+        User currentUser = getCurrentUser();
+        String userRole = getCurrentUserRole();
+        
+        // Verifica se o usuário tem acesso ao projeto
+        if (!projectRepository.isProjectAccessibleByUser(projectId, currentUser.getId(), userRole)) {
+            throw new SecurityException("Usuário não tem acesso a este projeto");
+        }
+        
         Project project = projectRepository.findByIdWithTeamMembers(projectId)
                 .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + projectId + " não foi encontrado"));
 
@@ -331,16 +496,23 @@ public class ProjectService {
 
     /**
      * Obtém informações de orçamento de um projeto.
-     * 
-     * Calcula e retorna informações detalhadas sobre orçamento planejado,
-     * custos realizados, percentual de utilização e estimativas de conclusão.
+     * Verifica se o usuário tem acesso ao projeto.
      * 
      * @param projectId ID do projeto
-     * @return ProjectBudgetDto informações de orçamento do projeto
+     * @return ProjectBudgetDto informações de orçamento
      * @throws ProjectNotFoundException se projeto não for encontrado
+     * @throws SecurityException se usuário não tiver acesso ao projeto
      */
     @Transactional(readOnly = true)
     public ProjectBudgetDto getProjectBudget(Long projectId) {
+        User currentUser = getCurrentUser();
+        String userRole = getCurrentUserRole();
+        
+        // Verifica se o usuário tem acesso ao projeto
+        if (!projectRepository.isProjectAccessibleByUser(projectId, currentUser.getId(), userRole)) {
+            throw new SecurityException("Usuário não tem acesso a este projeto");
+        }
+        
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + projectId + " não foi encontrado"));
 
@@ -348,28 +520,23 @@ public class ProjectService {
         budgetDto.setProjectId(projectId);
         budgetDto.setProjectName(project.getName());
         budgetDto.setTotalBudget(project.getTotalBudget());
-        budgetDto.setRealizedCost(project.getRealizedCost() != null ? project.getRealizedCost() : BigDecimal.ZERO);
+        budgetDto.setRealizedCost(project.getRealizedCost());
         
-        // Calcular variação do orçamento
-        BigDecimal budgetVariance = project.getTotalBudget().subtract(budgetDto.getRealizedCost());
-        budgetDto.setBudgetVariance(budgetVariance);
-        
-        // Calcular percentual utilizado
-        if (project.getTotalBudget().compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal percentage = budgetDto.getRealizedCost()
+        if (project.getTotalBudget() != null && project.getTotalBudget().compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal variance = project.getTotalBudget().subtract(project.getRealizedCost());
+            budgetDto.setBudgetVariance(variance);
+            
+            BigDecimal usagePercentage = project.getRealizedCost()
                     .divide(project.getTotalBudget(), 4, BigDecimal.ROUND_HALF_UP)
-                    .multiply(BigDecimal.valueOf(100));
-            budgetDto.setBudgetUsagePercentage(percentage);
+                    .multiply(new BigDecimal("100"));
+            budgetDto.setBudgetUsagePercentage(usagePercentage);
+            
+            budgetDto.setIsOverBudget(project.getRealizedCost().compareTo(project.getTotalBudget()) > 0);
         } else {
+            budgetDto.setBudgetVariance(BigDecimal.ZERO);
             budgetDto.setBudgetUsagePercentage(BigDecimal.ZERO);
+            budgetDto.setIsOverBudget(false);
         }
-
-        // Definir progresso do projeto
-        budgetDto.setProgressPercentage(project.getProgressPercentage() != null ? 
-                                      project.getProgressPercentage() : BigDecimal.ZERO);
-
-        // Determinar se está acima do orçamento
-        budgetDto.setIsOverBudget(budgetVariance.compareTo(BigDecimal.ZERO) < 0);
 
         return budgetDto;
     }

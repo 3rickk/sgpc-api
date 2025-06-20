@@ -90,6 +90,9 @@ public class SecurityConfig {
                 // Permite acesso livre aos endpoints de autenticação
                 .requestMatchers("/api/auth/**").permitAll()
                 
+                // Permite acesso livre ao endpoint de ping (health check)
+                .requestMatchers("/ping").permitAll()
+                
                 // Permite acesso livre à documentação Swagger
                 .requestMatchers("/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/api-docs/**", "/v3/api-docs/**").permitAll()

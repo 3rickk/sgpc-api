@@ -254,13 +254,13 @@ public class MaterialController {
 
     /**
      * Remove um material do sistema.
-     * Apenas ADMIN pode excluir materiais.
+     * Apenas ADMIN e MANAGER podem deletar materiais.
      * 
      * @param id ID do material a ser removido
      * @return ResponseEntity sem conteúdo
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @Operation(
         summary = "Excluir material",
         description = "Remove um material do sistema"
@@ -371,12 +371,12 @@ public class MaterialController {
 
     /**
      * Lista materiais com estoque baixo.
-     * ADMIN e MANAGER têm acesso a relatórios de estoque baixo.
+     * Todos os usuários autenticados podem visualizar relatórios de estoque baixo.
      * 
      * @return ResponseEntity contendo lista de materiais com estoque baixo
      */
     @GetMapping("/low-stock")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('USER')")
     @Operation(
         summary = "Obter materiais com estoque baixo",
         description = "Lista materiais que estão com quantidade atual abaixo do estoque mínimo"

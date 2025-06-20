@@ -551,18 +551,14 @@ public class ProjectService {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + projectId + " não foi encontrado"));
 
-        // Calcular custo realizado com base nas tarefas concluídas
-        BigDecimal realizedCost = taskServiceRepository.calculateRealizedCostByProjectId(projectId);
-        
-        // Adicionar custos diretos das tarefas concluídas (que não possuem serviços)
-        BigDecimal taskDirectCosts = taskRepository.findByProjectIdAndStatus(projectId, TaskStatus.CONCLUIDA)
+        // Calcular custo total de todas as tarefas (mesma lógica do TaskService)
+        // Isso inclui tanto custos diretos quanto custos de serviços das tarefas
+        BigDecimal totalTaskCosts = taskRepository.findByProjectId(projectId)
                 .stream()
                 .map(Task::getTotalCost)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal totalRealizedCost = realizedCost.add(taskDirectCosts);
-
-        project.updateRealizedCost(totalRealizedCost);
+        project.updateRealizedCost(totalTaskCosts);
         projectRepository.save(project);
     }
 

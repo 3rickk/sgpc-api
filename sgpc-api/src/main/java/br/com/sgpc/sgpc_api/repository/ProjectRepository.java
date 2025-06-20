@@ -155,4 +155,116 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
      */
     @Query(value = "SELECT COUNT(*) FROM project_members WHERE project_id = :projectId", nativeQuery = true)
     Long countTeamMembersByProjectId(@Param("projectId") Long projectId);
+
+    /**
+     * Busca projetos acessíveis para um usuário específico baseado em sua role.
+     * 
+     * Para ADMIN: projetos que criou ou está na equipe
+     * Para MANAGER: projetos onde está na equipe
+     * Para USER: projetos onde está na equipe
+     * 
+     * @param userId ID do usuário
+     * @param userRole role do usuário (ADMIN, MANAGER, USER)
+     * @return List<Project> projetos acessíveis pelo usuário
+     */
+    @Query("SELECT DISTINCT p FROM Project p LEFT JOIN p.teamMembers tm " +
+           "WHERE (:userRole = 'ADMIN' AND (p.createdBy.id = :userId OR tm.id = :userId)) " +
+           "OR (:userRole IN ('MANAGER', 'USER') AND tm.id = :userId)")
+    List<Project> findProjectsAccessibleByUser(@Param("userId") Long userId, @Param("userRole") String userRole);
+
+    /**
+     * Busca projetos por status acessíveis para um usuário específico.
+     * 
+     * @param status status do projeto
+     * @param userId ID do usuário
+     * @param userRole role do usuário
+     * @return List<Project> projetos no status especificado e acessíveis pelo usuário
+     */
+    @Query("SELECT DISTINCT p FROM Project p LEFT JOIN p.teamMembers tm " +
+           "WHERE p.status = :status AND " +
+           "((:userRole = 'ADMIN' AND (p.createdBy.id = :userId OR tm.id = :userId)) " +
+           "OR (:userRole IN ('MANAGER', 'USER') AND tm.id = :userId))")
+    List<Project> findByStatusAccessibleByUser(@Param("status") ProjectStatus status, 
+                                               @Param("userId") Long userId, 
+                                               @Param("userRole") String userRole);
+
+    /**
+     * Busca projetos por cliente acessíveis para um usuário específico.
+     * 
+     * @param client nome do cliente
+     * @param userId ID do usuário
+     * @param userRole role do usuário
+     * @return List<Project> projetos do cliente acessíveis pelo usuário
+     */
+    @Query("SELECT DISTINCT p FROM Project p LEFT JOIN p.teamMembers tm " +
+           "WHERE p.client = :client AND " +
+           "((:userRole = 'ADMIN' AND (p.createdBy.id = :userId OR tm.id = :userId)) " +
+           "OR (:userRole IN ('MANAGER', 'USER') AND tm.id = :userId))")
+    List<Project> findByClientAccessibleByUser(@Param("client") String client, 
+                                               @Param("userId") Long userId, 
+                                               @Param("userRole") String userRole);
+
+    /**
+     * Busca projetos por nome acessíveis para um usuário específico.
+     * 
+     * @param name parte do nome do projeto
+     * @param userId ID do usuário
+     * @param userRole role do usuário
+     * @return List<Project> projetos que contêm o texto no nome e são acessíveis pelo usuário
+     */
+    @Query("SELECT DISTINCT p FROM Project p LEFT JOIN p.teamMembers tm " +
+           "WHERE p.name LIKE %:name% AND " +
+           "((:userRole = 'ADMIN' AND (p.createdBy.id = :userId OR tm.id = :userId)) " +
+           "OR (:userRole IN ('MANAGER', 'USER') AND tm.id = :userId))")
+    List<Project> findByNameContainingIgnoreCaseAccessibleByUser(@Param("name") String name, 
+                                                                 @Param("userId") Long userId, 
+                                                                 @Param("userRole") String userRole);
+
+    /**
+     * Busca projetos atrasados acessíveis para um usuário específico.
+     * 
+     * @param date data de referência
+     * @param userId ID do usuário
+     * @param userRole role do usuário
+     * @return List<Project> projetos em atraso acessíveis pelo usuário
+     */
+    @Query("SELECT DISTINCT p FROM Project p LEFT JOIN p.teamMembers tm " +
+           "WHERE p.endDatePlanned < :date AND p.status NOT IN ('CONCLUIDO', 'CANCELADO') AND " +
+           "((:userRole = 'ADMIN' AND (p.createdBy.id = :userId OR tm.id = :userId)) " +
+           "OR (:userRole IN ('MANAGER', 'USER') AND tm.id = :userId))")
+    List<Project> findDelayedProjectsAccessibleByUser(@Param("date") LocalDate date, 
+                                                      @Param("userId") Long userId, 
+                                                      @Param("userRole") String userRole);
+
+    /**
+     * Verifica se um projeto é acessível para um usuário específico.
+     * 
+     * @param projectId ID do projeto
+     * @param userId ID do usuário
+     * @param userRole role do usuário
+     * @return boolean true se o usuário pode acessar o projeto
+     */
+    @Query("SELECT COUNT(p) > 0 FROM Project p LEFT JOIN p.teamMembers tm " +
+           "WHERE p.id = :projectId AND " +
+           "((:userRole = 'ADMIN' AND (p.createdBy.id = :userId OR tm.id = :userId)) " +
+           "OR (:userRole IN ('MANAGER', 'USER') AND tm.id = :userId))")
+    boolean isProjectAccessibleByUser(@Param("projectId") Long projectId, 
+                                      @Param("userId") Long userId, 
+                                      @Param("userRole") String userRole);
+
+    /**
+     * Busca um projeto por ID com verificação de acesso do usuário.
+     * 
+     * @param projectId ID do projeto
+     * @param userId ID do usuário
+     * @param userRole role do usuário
+     * @return Optional<Project> projeto se acessível pelo usuário
+     */
+    @Query("SELECT p FROM Project p LEFT JOIN FETCH p.teamMembers tm " +
+           "WHERE p.id = :projectId AND " +
+           "((:userRole = 'ADMIN' AND (p.createdBy.id = :userId OR tm.id = :userId)) " +
+           "OR (:userRole IN ('MANAGER', 'USER') AND tm.id = :userId))")
+    Optional<Project> findByIdAccessibleByUser(@Param("projectId") Long projectId, 
+                                               @Param("userId") Long userId, 
+                                               @Param("userRole") String userRole);
 } 

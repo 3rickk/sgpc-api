@@ -6,6 +6,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,13 +24,19 @@ import br.com.sgpc.sgpc_api.exception.UserNotFoundException;
 import br.com.sgpc.sgpc_api.repository.ProjectRepository;
 import br.com.sgpc.sgpc_api.repository.TaskRepository;
 import br.com.sgpc.sgpc_api.repository.UserRepository;
+import br.com.sgpc.sgpc_api.security.UserDetailsImpl;
 
 /**
  * Serviço responsável pela lógica de negócio das tarefas.
  * 
  * Esta classe implementa todas as operações relacionadas ao gerenciamento
- * de tarefas, incluindo CRUD, controle de status, atribuição de usuários
- * e cálculos de progresso.
+ * de tarefas, incluindo CRUD, controle de status, atribuição de usuários,
+ * cálculos de progresso e isolamento de dados por usuário/contexto.
+ * 
+ * Implementa isolamento de dados onde:
+ * - ADMIN: acessa tarefas de projetos que criou ou está na equipe
+ * - MANAGER: acessa tarefas de projetos onde está na equipe
+ * - USER: acessa tarefas de projetos onde está na equipe, pode interagir apenas com tarefas que está atribuído
  * 
  * @author Sistema SGPC
  * @version 1.0
@@ -48,19 +56,85 @@ public class TaskService {
     private UserRepository userRepository;
 
     /**
-     * Cria uma nova tarefa no sistema.
+     * Obtém informações do usuário logado.
      * 
-     * Valida se não existe outra tarefa com o mesmo título no projeto,
-     * verifica a existência do projeto e usuários envolvidos, e cria
-     * a tarefa com os dados fornecidos.
+     * @return User usuário autenticado
+     */
+    private User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        return userRepository.findById(userDetails.getId())
+                .orElseThrow(() -> new UserNotFoundException("Usuário logado não encontrado"));
+    }
+
+    /**
+     * Obtém a role principal do usuário logado.
+     * 
+     * @return String role do usuário (ADMIN, MANAGER, USER)
+     */
+    private String getCurrentUserRole() {
+        User user = getCurrentUser();
+        if (user.hasRole("ADMIN")) return "ADMIN";
+        if (user.hasRole("MANAGER")) return "MANAGER";
+        return "USER";
+    }
+
+    /**
+     * Verifica se o usuário pode acessar o projeto.
+     * 
+     * @param projectId ID do projeto
+     * @return boolean true se pode acessar
+     */
+    private boolean canAccessProject(Long projectId) {
+        User currentUser = getCurrentUser();
+        String userRole = getCurrentUserRole();
+        return projectRepository.isProjectAccessibleByUser(projectId, currentUser.getId(), userRole);
+    }
+
+    /**
+     * Verifica se o usuário pode editar uma tarefa.
+     * Para USER: apenas tarefas que está atribuído
+     * Para MANAGER/ADMIN: qualquer tarefa de projetos acessíveis
+     * 
+     * @param task tarefa a ser verificada
+     * @return boolean true se pode editar
+     */
+    private boolean canEditTask(Task task) {
+        User currentUser = getCurrentUser();
+        String userRole = getCurrentUserRole();
+        
+        // Verifica se pode acessar o projeto
+        if (!canAccessProject(task.getProject().getId())) {
+            return false;
+        }
+        
+        // ADMIN e MANAGER podem editar qualquer tarefa do projeto
+        if ("ADMIN".equals(userRole) || "MANAGER".equals(userRole)) {
+            return true;
+        }
+        
+        // USER só pode editar tarefas que está atribuído
+        return task.getAssignedUser() != null && task.getAssignedUser().getId().equals(currentUser.getId());
+    }
+
+    /**
+     * Cria uma nova tarefa no sistema.
+     * Verifica se o usuário pode acessar o projeto.
      * 
      * @param projectId ID do projeto ao qual a tarefa pertence
      * @param taskCreateDto dados da tarefa a ser criada
      * @param createdByUserId ID do usuário que está criando a tarefa
      * @return TaskViewDto dados da tarefa criada
-     * @throws RuntimeException se projeto não for encontrado, título já existir ou usuário não for encontrado
+     * @throws SecurityException se usuário não tiver acesso ao projeto
+     * @throws ProjectNotFoundException se projeto não for encontrado
+     * @throws RuntimeException se título já existir ou usuário não for encontrado
      */
     public TaskViewDto createTask(Long projectId, TaskCreateDto taskCreateDto, Long createdByUserId) {
+        // Verificar se o usuário pode acessar o projeto
+        if (!canAccessProject(projectId)) {
+            throw new SecurityException("Usuário não tem acesso a este projeto");
+        }
+        
         // Verificar se o projeto existe
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + projectId + " não foi encontrado"));
@@ -103,12 +177,19 @@ public class TaskService {
 
     /**
      * Obtém todas as tarefas de um projeto.
+     * Verifica se o usuário pode acessar o projeto.
      * 
      * @param projectId ID do projeto
      * @return List<TaskViewDto> lista de tarefas do projeto
+     * @throws SecurityException se usuário não tiver acesso ao projeto
      */
     @Transactional(readOnly = true)
     public List<TaskViewDto> getTasksByProject(Long projectId) {
+        // Verificar se o usuário pode acessar o projeto
+        if (!canAccessProject(projectId)) {
+            throw new SecurityException("Usuário não tem acesso a este projeto");
+        }
+        
         // Verificar se o projeto existe
         projectRepository.findById(projectId)
                 .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + projectId + " não foi encontrado"));
@@ -120,13 +201,20 @@ public class TaskService {
 
     /**
      * Obtém tarefas de um projeto por status específico.
+     * Verifica se o usuário pode acessar o projeto.
      * 
      * @param projectId ID do projeto
      * @param status status das tarefas a serem filtradas
      * @return List<TaskViewDto> lista de tarefas filtradas por status
+     * @throws SecurityException se usuário não tiver acesso ao projeto
      */
     @Transactional(readOnly = true)
     public List<TaskViewDto> getTasksByProjectAndStatus(Long projectId, TaskStatus status) {
+        // Verificar se o usuário pode acessar o projeto
+        if (!canAccessProject(projectId)) {
+            throw new SecurityException("Usuário não tem acesso a este projeto");
+        }
+        
         // Verificar se o projeto existe
         projectRepository.findById(projectId)
                 .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + projectId + " não foi encontrado"));
@@ -138,46 +226,77 @@ public class TaskService {
 
     /**
      * Obtém uma tarefa específica por ID.
+     * Verifica se o usuário pode acessar o projeto da tarefa.
      * 
      * @param taskId ID da tarefa
-     * @return Optional<TaskViewDto> tarefa encontrada ou vazio se não existir
+     * @return Optional<TaskViewDto> tarefa encontrada ou vazio se não acessível
+     * @throws SecurityException se usuário não tiver acesso à tarefa
      */
     @Transactional(readOnly = true)
     public Optional<TaskViewDto> getTaskById(Long taskId) {
-        return taskRepository.findByIdWithDetails(taskId)
-                .map(this::convertToViewDto);
+        Optional<Task> taskOpt = taskRepository.findByIdWithDetails(taskId);
+        
+        if (taskOpt.isEmpty()) {
+            return Optional.empty();
+        }
+        
+        Task task = taskOpt.get();
+        
+        // Verificar se o usuário pode acessar o projeto da tarefa
+        if (!canAccessProject(task.getProject().getId())) {
+            throw new SecurityException("Usuário não tem acesso a esta tarefa");
+        }
+        
+        return Optional.of(convertToViewDto(task));
     }
 
     /**
      * Obtém tarefas atribuídas a um usuário específico.
+     * Para USER: apenas próprias tarefas
+     * Para MANAGER/ADMIN: tarefas do usuário em projetos acessíveis
      * 
      * @param userId ID do usuário
      * @return List<TaskViewDto> lista de tarefas atribuídas ao usuário
+     * @throws SecurityException se USER tentar acessar tarefas de outro usuário
      */
     @Transactional(readOnly = true)
     public List<TaskViewDto> getTasksByAssignedUser(Long userId) {
-        return taskRepository.findByAssignedUserId(userId).stream()
+        User currentUser = getCurrentUser();
+        String userRole = getCurrentUserRole();
+        
+        // USER só pode ver suas próprias tarefas
+        if ("USER".equals(userRole) && !currentUser.getId().equals(userId)) {
+            throw new SecurityException("Usuário não tem permissão para ver tarefas de outros usuários");
+        }
+        
+        List<Task> tasks = taskRepository.findByAssignedUserId(userId);
+        
+        // Filtrar tarefas baseado no acesso ao projeto
+        return tasks.stream()
+                .filter(task -> canAccessProject(task.getProject().getId()))
                 .map(this::convertToViewDto)
                 .collect(Collectors.toList());
     }
 
     /**
-     * Obtém tarefas atribuídas a um usuário específico de um projeto.
+     * Verifica se o usuário está na equipe de um projeto da tarefa.
+     * Usado principalmente pelo sistema de segurança do Spring.
      * 
-     * @param projectId ID do projeto
+     * @param taskId ID da tarefa
      * @param userId ID do usuário
-     * @return List<TaskViewDto> lista de tarefas atribuídas ao usuário no projeto
+     * @return boolean true se o usuário está na equipe do projeto
      */
-    @Transactional(readOnly = true)
-    public List<TaskViewDto> getTasksByAssignedUserAndProject(Long projectId, Long userId) {
-        // Verificar se o projeto existe
-        projectRepository.findById(projectId)
-                .orElseThrow(() -> new ProjectNotFoundException("Projeto com ID " + projectId + " não foi encontrado"));
+    public boolean isUserInTaskProject(Long taskId, Long userId) {
+        Optional<Task> taskOpt = taskRepository.findById(taskId);
+        if (taskOpt.isEmpty()) {
+            return false;
+        }
         
-        return taskRepository.findByAssignedUserId(userId).stream()
-                .filter(task -> task.getProject().getId().equals(projectId))
-                .map(this::convertToViewDto)
-                .collect(Collectors.toList());
+        Task task = taskOpt.get();
+        User currentUser = getCurrentUser();
+        String userRole = getCurrentUserRole();
+        
+        return projectRepository.isProjectAccessibleByUser(task.getProject().getId(), currentUser.getId(), userRole);
     }
 
     /**

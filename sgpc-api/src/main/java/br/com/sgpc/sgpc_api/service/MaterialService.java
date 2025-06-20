@@ -6,6 +6,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,11 +16,15 @@ import br.com.sgpc.sgpc_api.dto.MaterialDto;
 import br.com.sgpc.sgpc_api.dto.MaterialUpdateDto;
 import br.com.sgpc.sgpc_api.dto.StockMovementDto;
 import br.com.sgpc.sgpc_api.entity.Material;
+import br.com.sgpc.sgpc_api.entity.User;
 import br.com.sgpc.sgpc_api.exception.InsufficientStockException;
 import br.com.sgpc.sgpc_api.exception.InvalidMovementTypeException;
 import br.com.sgpc.sgpc_api.exception.MaterialAlreadyExistsException;
 import br.com.sgpc.sgpc_api.exception.MaterialNotFoundException;
+import br.com.sgpc.sgpc_api.exception.UserNotFoundException;
 import br.com.sgpc.sgpc_api.repository.MaterialRepository;
+import br.com.sgpc.sgpc_api.repository.UserRepository;
+import br.com.sgpc.sgpc_api.security.UserDetailsImpl;
 
 /**
  * Serviço responsável pelo gerenciamento de materiais de construção.
@@ -27,13 +33,17 @@ import br.com.sgpc.sgpc_api.repository.MaterialRepository;
  * incluindo CRUD completo, controle de estoque, alertas de baixo estoque
  * e operações de movimentação de entrada e saída.
  * 
+ * Implementa controle de acesso onde:
+ * - USER: apenas visualização de materiais
+ * - MANAGER/ADMIN: todas as operações (CRUD, controle de estoque)
+ * 
  * Principais funcionalidades:
- * - CRUD completo de materiais
- * - Controle de estoque com validações
+ * - CRUD completo de materiais (MANAGER/ADMIN)
+ * - Controle de estoque com validações (MANAGER/ADMIN)
  * - Alertas de materiais com baixo estoque
  * - Busca por nome e fornecedor
- * - Movimentações de entrada e saída
- * - Soft delete para preservar histórico
+ * - Movimentações de entrada e saída (MANAGER/ADMIN)
+ * - Soft delete para preservar histórico (MANAGER/ADMIN)
  * 
  * @author Sistema SGPC
  * @version 1.0
@@ -46,17 +56,58 @@ public class MaterialService {
     @Autowired
     private MaterialRepository materialRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    /**
+     * Obtém informações do usuário logado.
+     * 
+     * @return User usuário autenticado
+     */
+    private User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        return userRepository.findById(userDetails.getId())
+                .orElseThrow(() -> new UserNotFoundException("Usuário logado não encontrado"));
+    }
+
+    /**
+     * Obtém a role principal do usuário logado.
+     * 
+     * @return String role do usuário (ADMIN, MANAGER, USER)
+     */
+    private String getCurrentUserRole() {
+        User user = getCurrentUser();
+        if (user.hasRole("ADMIN")) return "ADMIN";
+        if (user.hasRole("MANAGER")) return "MANAGER";
+        return "USER";
+    }
+
+    /**
+     * Verifica se o usuário pode realizar operações de modificação em materiais.
+     * Apenas MANAGER e ADMIN podem criar, editar, deletar e gerenciar estoque.
+     * 
+     * @throws SecurityException se usuário não tiver permissão
+     */
+    private void validateModificationPermission() {
+        String userRole = getCurrentUserRole();
+        if ("USER".equals(userRole)) {
+            throw new SecurityException("Usuário não tem permissão para realizar esta operação em materiais");
+        }
+    }
+
     /**
      * Cria um novo material no sistema.
-     * 
-     * Valida se não existe outro material com o mesmo nome e cria
-     * um novo registro com estoque inicial e configurações padrão.
+     * Requer permissão de MANAGER ou ADMIN.
      * 
      * @param materialCreateDto dados do material a ser criado
      * @return MaterialDto dados do material criado
+     * @throws SecurityException se usuário não tiver permissão
      * @throws MaterialAlreadyExistsException se já existir material com o mesmo nome
      */
     public MaterialDto createMaterial(MaterialCreateDto materialCreateDto) {
+        validateModificationPermission();
+        
         if (materialRepository.existsByName(materialCreateDto.getName())) {
             throw new MaterialAlreadyExistsException("Já existe um material cadastrado com o nome: " + materialCreateDto.getName());
         }
@@ -156,17 +207,18 @@ public class MaterialService {
 
     /**
      * Atualiza dados de um material existente.
-     * 
-     * Permite atualização parcial dos dados, validando se
-     * o novo nome não está em uso por outro material.
+     * Requer permissão de MANAGER ou ADMIN.
      * 
      * @param id ID do material a ser atualizado
      * @param materialUpdateDto dados para atualização
      * @return MaterialDto material atualizado
+     * @throws SecurityException se usuário não tiver permissão
      * @throws MaterialNotFoundException se material não for encontrado
      * @throws MaterialAlreadyExistsException se nome já existir
      */
     public MaterialDto updateMaterial(Long id, MaterialUpdateDto materialUpdateDto) {
+        validateModificationPermission();
+        
         Material material = materialRepository.findByIdAndIsActiveTrue(id)
                 .orElseThrow(() -> new MaterialNotFoundException("Material com ID " + id + " não foi encontrado"));
 
@@ -205,59 +257,64 @@ public class MaterialService {
     }
 
     /**
-     * Remove um material do sistema (soft delete).
-     * 
-     * Marca o material como inativo em vez de excluí-lo fisicamente,
-     * preservando o histórico de uso em projetos e tarefas.
+     * Remove (desativa) um material do sistema.
+     * Requer permissão de MANAGER ou ADMIN.
      * 
      * @param id ID do material a ser removido
-     * @throws MaterialNotFoundException se o material não for encontrado
+     * @throws SecurityException se usuário não tiver permissão
+     * @throws MaterialNotFoundException se material não for encontrado
      */
     public void deleteMaterial(Long id) {
+        validateModificationPermission();
+        
         Material material = materialRepository.findByIdAndIsActiveTrue(id)
                 .orElseThrow(() -> new MaterialNotFoundException("Material com ID " + id + " não foi encontrado"));
-        
-        // Soft delete - apenas marca como inativo
+
+        // Soft delete - marca como inativo ao invés de remover
         material.setIsActive(false);
         materialRepository.save(material);
     }
 
     /**
-     * Atualiza estoque de um material.
-     * 
-     * Processa movimentações de entrada ou saída de estoque
-     * com validações para evitar estoque negativo.
+     * Atualiza o estoque de um material.
+     * Requer permissão de MANAGER ou ADMIN.
      * 
      * @param id ID do material
-     * @param stockMovementDto dados da movimentação (tipo e quantidade)
-     * @return MaterialDto material com estoque atualizado
+     * @param stockMovementDto dados da movimentação
+     * @return MaterialDto material atualizado
+     * @throws SecurityException se usuário não tiver permissão
      * @throws MaterialNotFoundException se material não for encontrado
-     * @throws InvalidMovementTypeException se tipo inválido
-     * @throws InsufficientStockException se estoque insuficiente
      */
     public MaterialDto updateStock(Long id, StockMovementDto stockMovementDto) {
+        validateModificationPermission();
+        
         Material material = materialRepository.findByIdAndIsActiveTrue(id)
                 .orElseThrow(() -> new MaterialNotFoundException("Material com ID " + id + " não foi encontrado"));
 
         String movementType = stockMovementDto.getMovementType().toUpperCase();
         BigDecimal quantity = stockMovementDto.getQuantity();
 
-        try {
-            switch (movementType) {
-                case "ENTRADA":
-                    material.addStock(quantity);
-                    break;
-                case "SAIDA":
-                    material.removeStock(quantity);
-                    break;
-                default:
-                    throw new InvalidMovementTypeException("Tipo de movimentação '" + movementType + "' é inválido. Use 'ENTRADA' ou 'SAIDA'");
-            }
-        } catch (RuntimeException e) {
-            if (e.getMessage().contains("Estoque insuficiente")) {
-                throw new InsufficientStockException(e.getMessage());
-            }
-            throw e;
+        if (quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("A quantidade deve ser maior que zero");
+        }
+
+        switch (movementType) {
+            case "ENTRADA":
+            case "IN":
+                material.setCurrentStock(material.getCurrentStock().add(quantity));
+                break;
+            case "SAIDA":
+            case "OUT":
+                if (material.getCurrentStock().compareTo(quantity) < 0) {
+                    throw new InsufficientStockException(
+                        "Estoque insuficiente. Disponível: " + material.getCurrentStock() + 
+                        ", Solicitado: " + quantity
+                    );
+                }
+                material.setCurrentStock(material.getCurrentStock().subtract(quantity));
+                break;
+            default:
+                throw new InvalidMovementTypeException("Tipo de movimentação inválido: " + movementType);
         }
 
         Material savedMaterial = materialRepository.save(material);

@@ -21,6 +21,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -139,6 +140,16 @@ public class Project {
      */
     @Column(name = "progress_percentage", precision = 5, scale = 2)
     private BigDecimal progressPercentage = BigDecimal.ZERO;
+
+    /**
+     * Usuário que criou o projeto.
+     * 
+     * Referência ao usuário responsável pela criação do projeto.
+     * Usado para controle de acesso e isolamento de dados.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by_user_id")
+    private User createdBy;
 
     /**
      * Data de criação do registro.

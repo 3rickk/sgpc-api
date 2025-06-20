@@ -802,7 +802,11 @@ public class TaskController {
             @PathVariable Long projectId,
             @Parameter(description = "ID do usuário", required = true)
             @PathVariable Long userId) {
-        List<TaskViewDto> tasks = taskService.getTasksByAssignedUserAndProject(projectId, userId);
+        List<TaskViewDto> tasks = taskService.getTasksByAssignedUser(userId);
+        // Filtrar apenas tarefas do projeto específico
+        tasks = tasks.stream()
+                .filter(task -> task.getProjectId().equals(projectId))
+                .collect(java.util.stream.Collectors.toList());
         return ResponseEntity.ok(tasks);
     }
 } 
